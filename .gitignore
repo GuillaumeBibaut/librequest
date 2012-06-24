@@ -1,4 +1,5 @@
 # Compiled Object files
+*.So
 *.slo
 *.lo
 *.o
