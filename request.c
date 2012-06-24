@@ -15,6 +15,11 @@
         ((c) >= 'A' && (c) <= 'F') ? (c) - 'A' + 10 : 0)
 
 #define MFD_STRING "multipart/form-data; boundary="
+#define MFD_CD_STRING "Content-Disposition: form-data; "
+#define MFD_CT_STRING "Content-Type: "
+#define MFD_NEWLINE "\r\n"
+#define MFD_CHUNKSIZE (32 * 1024)
+
 #define SRQ_MAXFILESIZE (8 * 1024 * 1024)
 
 enum request_method {POST, GET, PUT};
@@ -80,7 +85,6 @@ tsrq_request * srq_request_parse(size_t maxfilesize) {
         }
     } else if (strcmp(ptr, "PUT") == 0) {
         if (getenv("CONTENT_LENGTH") == NULL) {
-            request->_PUT = strdup("pas de content length!");
             return(request);
         }
         if ((res = srq_readform(PUT, (void **)&_PUT, &putcount)) != 0) {
@@ -335,10 +339,6 @@ static int srq_readform(enum request_method method, void **_METHOD, size_t *meth
 /*
  *
  */
-#define MFD_CD_STRING "Content-Disposition: form-data; "
-#define MFD_CT_STRING "Content-Type: "
-#define MFD_NEWLINE "\r\n"
-#define MFD_CHUNKSIZE (32 * 1024)
 static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
     enum { NONE, NEWPAIR, READPAIR, NEWFILE, READFILE };
 
