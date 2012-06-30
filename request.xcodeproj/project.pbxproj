@@ -6,8 +6,16 @@
 	objectVersion = 46;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		E9D03393159F7A9900BF739C /* srq-request.c in Sources */ = {isa = PBXBuildFile; fileRef = E9D03390159F7A9900BF739C /* srq-request.c */; };
+		E9D03394159F7A9900BF739C /* srq-request.h in Headers */ = {isa = PBXBuildFile; fileRef = E9D03391159F7A9900BF739C /* srq-request.h */; settings = {ATTRIBUTES = (Public, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		E9D03388159F7A7B00BF739C /* librequest.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = librequest.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		E9D0338F159F7A9900BF739C /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		E9D03390159F7A9900BF739C /* srq-request.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "srq-request.c"; sourceTree = "<group>"; };
+		E9D03391159F7A9900BF739C /* srq-request.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "srq-request.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -24,6 +32,8 @@
 		E9D0337D159F7A7A00BF739C = {
 			isa = PBXGroup;
 			children = (
+				E9D03395159F7ACD00BF739C /* FreeBSD Makefile */,
+				E9D03396159F7B4A00BF739C /* Sources */,
 				E9D03389159F7A7B00BF739C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -36,6 +46,23 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		E9D03395159F7ACD00BF739C /* FreeBSD Makefile */ = {
+			isa = PBXGroup;
+			children = (
+				E9D0338F159F7A9900BF739C /* Makefile */,
+			);
+			name = "FreeBSD Makefile";
+			sourceTree = "<group>";
+		};
+		E9D03396159F7B4A00BF739C /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				E9D03390159F7A9900BF739C /* srq-request.c */,
+				E9D03391159F7A9900BF739C /* srq-request.h */,
+			);
+			name = Sources;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -43,6 +70,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E9D03394159F7A9900BF739C /* srq-request.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -96,6 +124,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E9D03393159F7A9900BF739C /* srq-request.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -153,7 +182,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				EXECUTABLE_PREFIX = lib;
+				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				RUN_CLANG_STATIC_ANALYZER = YES;
 			};
 			name = Debug;
 		};
@@ -161,7 +192,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				EXECUTABLE_PREFIX = lib;
+				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				RUN_CLANG_STATIC_ANALYZER = YES;
 			};
 			name = Release;
 		};
