@@ -139,26 +139,26 @@ void srq_request_free(tsrq_request *request) {
  *
  */
 bool srq_pair_lookup(const char *name, tsrq_lookup lookup, tsrq_lookup *result) {
-    bool res = false;
+    bool found = false;
     int index;
     int pairs_poolsz = 0;
      
     if (name == NULL || *name == '\0'
         || lookup.pairs == NULL || lookup.pairscount == 0) {
-        return(res);
+        return(found);
     }
     
     if (result == NULL) {
         result = (tsrq_lookup *)malloc(sizeof(tsrq_lookup));
         if (result == NULL) {
-            return(res);
+            return(found);
         }
     }
     
     memset(result, 0, sizeof(tsrq_lookup));
     for (index = 0; index < lookup.pairscount; index++) {
         if (strcmp(lookup.pairs[index].name, name) == 0) {
-            res = true;
+            found = true;
             if (result == NULL) {
                 break;
                 
@@ -178,7 +178,7 @@ bool srq_pair_lookup(const char *name, tsrq_lookup lookup, tsrq_lookup *result) 
             }
         }
     }
-    return(res);
+    return(found);
 }
 
 
