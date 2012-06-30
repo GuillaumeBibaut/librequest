@@ -343,7 +343,7 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
     enum { NONE, NEWPAIR, READPAIR, NEWFILE, READFILE };
 
     char *ptr;
-    char buffer[1024], *brm, *tok1, *ptr2, *ptr3;
+    char buffer[MFD_CHUNKSIZE], *brm, *tok1, *ptr2, *ptr3;
     int state = NONE;
     bool end, endfile;
     int pairs_poolsz = 0;
@@ -376,17 +376,21 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                         if (state == READPAIR) {
                             fgets(buffer, sizeof(buffer), stdin);
                         }
+
                     } else if (ptr == NULL) {
                         free(bound_start);
                         free(bound_end);
                         free(bound_startrn);
                         return(3);
+
                     } else {
                         *ptr = '\0';
                         if (strcmp(buffer, bound_end) == 0) {
                             end = true;
+
                         } else if (strcmp(buffer, bound_start) == 0) {
                             state = NEWPAIR;
+
                         } else if (strstr(buffer, MFD_CD_STRING) == buffer) {
                             ptr = buffer + strlen(MFD_CD_STRING);
                             if ((tok1 = strtok_r(ptr, ";", &brm)) != NULL) {
@@ -408,6 +412,7 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                                 if (request->postcount >= pairs_poolsz) {
                                     if (request->_POST == NULL) {
                                         request->_POST = (tsrq_pair *)malloc(sizeof(tsrq_pair) * PAIRS_POOLSZ);
+
                                     } else {
                                         request->_POST = (tsrq_pair *)realloc(request->_POST, sizeof(tsrq_pair) * (pairs_poolsz + PAIRS_POOLSZ));
                                     }
@@ -421,6 +426,7 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                                 }
                                 if ((tok1 = strtok_r(NULL, ";", &brm)) == NULL) {
                                     state = NEWPAIR;
+
                                 } else {
                                     if (*tok1 == ' ') {
                                         tok1++;
@@ -447,6 +453,7 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                                     if (request->_POST[request->postcount].value[0] != '\0') {
                                         if (request->_FILES == NULL) {
                                             request->_FILES = (tsrq_file *)malloc(sizeof(tsrq_file));
+
                                         } else {
                                             request->_FILES = (tsrq_file *)realloc(request->_FILES, sizeof(tsrq_file) * (request->filescount + 1));
                                         }
@@ -456,11 +463,13 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                                     state = NEWFILE;
                                 }
                             }
+
                         } else if (strstr(buffer, MFD_CT_STRING) == buffer) {
                             ptr = buffer + strlen(MFD_CT_STRING);
                             if (request->_POST[request->postcount].value[0] != '\0') {
                                 request->_FILES[request->filescount].content_type = strdup(ptr);
                             }
+
                         } else {
                             free(bound_start);
                             free(bound_end);
@@ -477,25 +486,31 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                     free(bound_end);
                     free(bound_startrn);
                     return(3);
+
                 } else {
                     *ptr = '\0';
                     if (strcmp(buffer, bound_end) == 0) {
                         request->postcount++;
                         end = true;
+
                     } else if (strcmp(buffer, bound_start) == 0) {
                         request->postcount++;
                         state = NEWPAIR;
+
                     } else {
                         if (request->_POST[request->postcount].value == NULL) {
                             request->_POST[request->postcount].value = strdup(buffer);
+
                         } else {
                             request->_POST[request->postcount].value = (char *)realloc(request->_POST[request->postcount].value,
                                     strlen(request->_POST[request->postcount].value) + 1 + strlen(buffer) + 1);
                             strcat(request->_POST[request->postcount].value, "\n");
                             strcat(request->_POST[request->postcount].value, buffer);
+
                         }
                         if (feof(stdin)) {
                             end = true;
+
                         } else {
                             fgets(buffer, sizeof(buffer), stdin);
                         }
@@ -524,6 +539,7 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                     if (file_len >= end_len && strcmp((file_ct + file_len - end_len), bound_end) == 0) {
                         if (request->_POST[request->postcount].value[0] == '\0') {
                             free(file_ct);
+
                         } else {
                             request->_FILES[request->filescount].length = (file_len - end_len);
                             if (request->_FILES[request->filescount].length > 2) {
@@ -533,6 +549,7 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                                 free(request->_FILES[request->filescount].data);
                                 request->_FILES[request->filescount].data = NULL;
                                 request->_FILES[request->filescount].length = -1;
+
                             } else {
                                 file_ct = (char *)realloc(file_ct, request->_FILES[request->filescount].length);
                                 request->_FILES[request->filescount].data = file_ct;
@@ -545,6 +562,7 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                     } else if (file_len >= start_len && strcmp((file_ct + file_len - start_len), bound_startrn) == 0) {
                         if (request->_POST[request->postcount].value[0] == '\0') {
                             free(file_ct);
+
                         } else {
                             request->_FILES[request->filescount].length = (file_len - start_len);
                             if (request->_FILES[request->filescount].length > 2) {
@@ -554,6 +572,7 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                                 free(request->_FILES[request->filescount].data);
                                 request->_FILES[request->filescount].data = NULL;
                                 request->_FILES[request->filescount].length = -1;
+
                             } else {
                                 file_ct = (char *)realloc(file_ct, request->_FILES[request->filescount].length);
                                 request->_FILES[request->filescount].data = file_ct;
