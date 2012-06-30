@@ -78,11 +78,13 @@ tsrq_request * srq_request_parse(size_t maxfilesize) {
             }
             request->_POST = _POST;
             request->postcount = postcount;
+            
         } else {
             if ((res = srq_readmfd(request, maxfilesize)) != 0) {
                 return(request);
             }
         }
+        
     } else if (strcmp(ptr, "PUT") == 0) {
         if (getenv("CONTENT_LENGTH") == NULL) {
             return(request);
@@ -246,6 +248,7 @@ static int srq_readform(enum request_method method, void **_METHOD, size_t *meth
                     }
                     break;
             }
+            
         } else {
             switch (method) {
                 case PUT:

@@ -44,5 +44,5 @@ void srq_request_free(tsrq_request *request);
 
 bool srq_pair_lookup(const char *name, tsrq_lookup lookup, tsrq_lookup *result);
 
-#endif /* __READFORM_H__ */
+#endif /* __REQUEST_H__ */
 
