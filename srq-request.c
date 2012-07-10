@@ -5,15 +5,6 @@
 
 #include "srq-request.h"
 
-#define FNAMESZ 256
-#define FVALUESZ 8192
-
-#define PAIRS_POOLSZ 4
-
-#define unhex(c) (((c) >= '0' && (c) <= '9') ? (c) - '0' : \
-        ((c) >= 'a' && (c) <= 'f') ? (c) - 'a' + 10 : \
-        ((c) >= 'A' && (c) <= 'F') ? (c) - 'A' + 10 : 0)
-
 #define MFD_STRING "multipart/form-data; boundary="
 #define MFD_CD_STRING "Content-Disposition: form-data; "
 #define MFD_CT_STRING "Content-Type: "
@@ -21,6 +12,15 @@
 #define MFD_CHUNKSIZE (32 * 1024)
 
 #define SRQ_MAXFILESIZE (8 * 1024 * 1024)
+
+#define FNAMESZ MFD_CHUNKSIZE
+#define FVALUESZ MFD_CHUNKSIZE
+
+#define PAIRS_POOLSZ 4
+
+#define unhex(c) (((c) >= '0' && (c) <= '9') ? (c) - '0' : \
+        ((c) >= 'a' && (c) <= 'f') ? (c) - 'a' + 10 : \
+        ((c) >= 'A' && (c) <= 'F') ? (c) - 'A' + 10 : 0)
 
 enum request_method {POST, GET, PUT};
 
