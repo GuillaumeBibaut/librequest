@@ -18,6 +18,9 @@
 
 #define PAIRS_POOLSZ 4
 
+#define FMAX_COUNT (PAIRS_POOLSZ * 1024)
+
+
 #define unhex(c) (((c) >= '0' && (c) <= '9') ? (c) - '0' : \
         ((c) >= 'a' && (c) <= 'f') ? (c) - 'a' + 10 : \
         ((c) >= 'A' && (c) <= 'F') ? (c) - 'A' + 10 : 0)
@@ -27,6 +30,7 @@ enum request_method {POST, GET, PUT};
 static int srq_readform(enum request_method method, void **_METHOD, size_t *methodcount);
 static int srq_readmfd(tsrq_request *request, size_t maxfilesize);
 static void srq_pairs_free(tsrq_pair *pairs, int pairscount);
+
 
 /*
  *
@@ -283,6 +287,9 @@ static int srq_readform(enum request_method method, void **_METHOD, size_t *meth
                     if (*_METHOD != NULL) {
                         ((tsrq_pair *)(*_METHOD))[*methodcount].value = strdup(curvalue);
                         (*methodcount)++;
+                        if (*methodcount >= FMAX_COUNT) {
+                            end = true;
+                        }
                     }
 
                     index = 0;
