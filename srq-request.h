@@ -4,14 +4,15 @@
 #include <stdbool.h>
 
 
-typedef struct srq_pair {
+typedef struct srq_tuple {
     char *name;
-    char *value;
-} tsrq_pair;
+    char **values;
+    size_t valuescount;
+} tsrq_tuple;
 
 typedef struct srq_lookup {
-    tsrq_pair *pairs;
-    size_t pairscount;
+    tsrq_tuple **tuples;
+    size_t tuplescount;
 } tsrq_lookup;
 
 typedef struct srq_file {
@@ -23,10 +24,10 @@ typedef struct srq_file {
 
 typedef struct srq_request {
 
-    tsrq_pair *_GET;
+    tsrq_tuple **_GET;
     size_t getcount;
 
-    tsrq_pair *_POST;
+    tsrq_tuple **_POST;
     size_t postcount;
     tsrq_file *_FILES;
     size_t filescount;

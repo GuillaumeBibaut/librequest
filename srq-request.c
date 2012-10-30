@@ -27,9 +27,13 @@
 
 enum request_method {POST, GET, PUT};
 
-static int srq_readform(enum request_method method, void **_METHOD, size_t *methodcount);
+static int srq_readform(enum request_method method, void ***_METHOD, size_t *methodcount);
+
 static int srq_readmfd(tsrq_request *request, size_t maxfilesize);
-static void srq_pairs_free(tsrq_pair *pairs, int pairscount);
+
+static void srq_pairs_free(tsrq_tuple ***tuples, size_t tuplescount);
+
+static tsrq_tuple * srq_tuple_find(const char *name, tsrq_tuple **tuples, size_t tuplescount);
 
 
 /*
@@ -46,7 +50,7 @@ tsrq_request * srq_request_get(void) {
 tsrq_request * srq_request_parse(size_t maxfilesize) {
     char *ptr, *_PUT = NULL;
     int res = 0;
-    tsrq_pair *_GET = NULL, *_POST = NULL;
+    tsrq_tuple **_GET = NULL, **_POST = NULL;
     size_t getcount = 0, postcount = 0, putcount = 0;
     tsrq_request *request;
 
@@ -62,7 +66,7 @@ tsrq_request * srq_request_parse(size_t maxfilesize) {
 
     if (getenv("QUERY_STRING") != NULL) {
         /* All Methods */
-        if ((res = srq_readform(GET, (void **)&_GET, &getcount)) != 0) {
+        if ((res = srq_readform(GET, (void ***)&_GET, &getcount)) != 0) {
             return(request);
         }
         request->_GET = _GET;
@@ -77,7 +81,7 @@ tsrq_request * srq_request_parse(size_t maxfilesize) {
             return(request);
         }
         if (strstr(ptr, MFD_STRING) == NULL) {
-            if ((res = srq_readform(POST, (void **)&_POST, &postcount)) != 0) {
+            if ((res = srq_readform(POST, (void ***)&_POST, &postcount)) != 0) {
                 return(request);
             }
             request->_POST = _POST;
@@ -93,7 +97,7 @@ tsrq_request * srq_request_parse(size_t maxfilesize) {
         if (getenv("CONTENT_LENGTH") == NULL) {
             return(request);
         }
-        if ((res = srq_readform(PUT, (void **)&_PUT, &putcount)) != 0) {
+        if ((res = srq_readform(PUT, (void ***)&_PUT, &putcount)) != 0) {
             return(request);
         }
         request->_PUT = _PUT;
@@ -113,8 +117,8 @@ void srq_request_free(tsrq_request *request) {
         return;
     }
 
-    srq_pairs_free(request->_GET, request->getcount);
-    srq_pairs_free(request->_POST, request->postcount);
+    srq_pairs_free(&(request->_GET), request->getcount);
+    srq_pairs_free(&(request->_POST), request->postcount);
     if (request->_FILES) {
         for (index = 0; index < request->filescount; index++) {
             if (request->_FILES[index].filename) {
@@ -148,37 +152,30 @@ bool srq_pair_lookup(const char *name, tsrq_lookup lookup, tsrq_lookup *result) 
     int pairs_poolsz = 0;
      
     if (name == NULL || *name == '\0'
-        || lookup.pairs == NULL || lookup.pairscount == 0) {
+        || lookup.tuples == NULL || lookup.tuplescount == 0) {
         return(found);
     }
     
-    if (result == NULL) {
-        result = (tsrq_lookup *)malloc(sizeof(tsrq_lookup));
-        if (result == NULL) {
-            return(found);
-        }
-    }
-    
     memset(result, 0, sizeof(tsrq_lookup));
-    for (index = 0; index < lookup.pairscount; index++) {
-        if (strcmp(lookup.pairs[index].name, name) == 0) {
+    for (index = 0; index < lookup.tuplescount; index++) {
+        if (strcmp(lookup.tuples[index]->name, name) == 0) {
             found = true;
             if (result == NULL) {
                 break;
                 
             } else {
-                if (result->pairscount >= pairs_poolsz) {
-                    if (result->pairs == NULL) {
-                        result->pairs = (tsrq_pair *)malloc(sizeof(tsrq_pair) * PAIRS_POOLSZ);
+                if (result->tuplescount >= pairs_poolsz) {
+                    if (result->tuples == NULL) {
+                        result->tuples = (tsrq_tuple **)malloc(sizeof(tsrq_tuple *) * PAIRS_POOLSZ);
                         
                     } else {
-                        result->pairs = (tsrq_pair *)realloc(result->pairs, sizeof(tsrq_pair) * (pairs_poolsz + PAIRS_POOLSZ));
+                        result->tuples = (tsrq_tuple **)realloc(result->tuples, sizeof(tsrq_tuple *) * (pairs_poolsz + PAIRS_POOLSZ));
                     }
-                    memset((result->pairs + pairs_poolsz), 0, sizeof(tsrq_pair) * PAIRS_POOLSZ);
+                    memset((result->tuples + pairs_poolsz), 0, sizeof(tsrq_tuple *) * PAIRS_POOLSZ);
                     pairs_poolsz += PAIRS_POOLSZ;
                 }
-                result->pairs[result->pairscount] = lookup.pairs[index];
-                result->pairscount++;
+                result->tuples[result->tuplescount] = lookup.tuples[index];
+                result->tuplescount++;
             }
         }
     }
@@ -189,35 +186,60 @@ bool srq_pair_lookup(const char *name, tsrq_lookup lookup, tsrq_lookup *result) 
 /*
  *
  */
-static void srq_pairs_free(tsrq_pair *pairs, int pairscount) {
-    int index;
+static tsrq_tuple * srq_tuple_find(const char *name, tsrq_tuple **tuples, size_t tuplescount) {
+    size_t index;
 
-    if (pairs == NULL || pairscount == 0) {
-        return;
+    if (name == NULL || *name == '\0' || tuples == NULL || tuplescount == 0) {
+        return((tsrq_tuple *)NULL);
     }
-    for (index = 0; index < pairscount; index++) {
-        if (pairs[index].name) {
-            free(pairs[index].name);
-        }
-        if (pairs[index].value) {
-            free(pairs[index].value);
+    for (index = 0; index < tuplescount; index++) {
+        if (strcmp(tuples[index]->name, name) == 0) {
+            return(tuples[index]);
         }
     }
-    free(pairs);
-    pairs = NULL;
+    return((tsrq_tuple *)NULL);
 }
 
 
 /*
  *
  */
-static int srq_readform(enum request_method method, void **_METHOD, size_t *methodcount) {
+static void srq_pairs_free(tsrq_tuple ***tuples, size_t tuplescount) {
+    size_t index, index2;
+
+    if (*tuples == NULL || tuplescount == 0) {
+        return;
+    }
+    for (index = 0; index < tuplescount; index++) {
+        if ((*tuples)[index]->name) {
+            free((*tuples)[index]->name);
+        }
+        for (index2 = 0; index2 < (*tuples)[index]->valuescount; index2++) {
+            if ((*tuples)[index]->values[index2]) {
+                free((*tuples)[index]->values[index2]);
+            }
+        }
+        free((*tuples)[index]->values);
+    }
+    free(*tuples);
+    *tuples = NULL;
+}
+
+
+/*
+ *
+ */
+static int srq_readform(enum request_method method, void ***_METHOD, size_t *methodcount) {
     enum { FIELDNAME, FIELDVALUE, HEXCHAR };
 
     char *ptr, c, curvalue[FVALUESZ + 1], curname[FNAMESZ + 1];
-    int size, index = 0, hexcnt = 0, hexc = 0;
+    int index = 0, hexcnt = 0, hexc = 0;
+    size_t size;
     int current, ostate = 0, pairs_poolsz = 0;
     bool end = false;
+    tsrq_tuple *tuple = NULL;
+    tsrq_tuple **_form = NULL;
+    char *_put = NULL;;
 
     switch (method) {
         case POST:
@@ -231,6 +253,17 @@ static int srq_readform(enum request_method method, void **_METHOD, size_t *meth
         default:
             ptr = (char *)getenv("QUERY_STRING");
             size = strlen(ptr);
+            break;
+    }
+    
+    switch (method) {
+        case PUT:
+            _put = (char *)*_METHOD;
+            break;
+        case GET:
+        case POST:
+        default:
+            _form = (tsrq_tuple **)*_METHOD;
             break;
     }
 
@@ -272,11 +305,11 @@ static int srq_readform(enum request_method method, void **_METHOD, size_t *meth
             }
 
             if (method == PUT) {
-                if (*_METHOD == NULL) {
-                    *_METHOD = (char *)malloc(size + 1);
-                    memset(*_METHOD, 0, size + 1);
+                if (_put == NULL) {
+                    _put = (char *)malloc(size + 1);
+                    memset(_put, 0, size + 1);
                 }
-                ((char *)(*_METHOD))[(*methodcount)++] = c;
+                _put[(*methodcount)++] = c;
                 if (end) {
                     (*methodcount)--;
                 }
@@ -284,12 +317,16 @@ static int srq_readform(enum request_method method, void **_METHOD, size_t *meth
             } else {
                 if (end || c == '&') {
                     curvalue[index] = '\0';
-                    if (*_METHOD != NULL) {
-                        ((tsrq_pair *)(*_METHOD))[*methodcount].value = strdup(curvalue);
-                        (*methodcount)++;
+                    if (tuple != NULL) {
                         if (*methodcount >= FMAX_COUNT) {
                             end = true;
                         }
+                        if (tuple->valuescount == 0) {
+                            tuple->values = (char **)malloc(tuple->valuescount + 1);
+                        } else {
+                            tuple->values = (char **)realloc(tuple->values, tuple->valuescount + 1);
+                        }
+                        tuple->values[tuple->valuescount++] = strdup(curvalue);
                     }
 
                     index = 0;
@@ -297,16 +334,21 @@ static int srq_readform(enum request_method method, void **_METHOD, size_t *meth
 
                 } else if (c == '=') {
                     curname[index] = '\0';
-                    if (*methodcount >= pairs_poolsz) {
-                        if (*_METHOD == NULL) {
-                            *_METHOD = (tsrq_pair *)malloc(sizeof(tsrq_pair) * PAIRS_POOLSZ);
-                        } else {
-                            *_METHOD = (tsrq_pair *)realloc(*_METHOD, sizeof(tsrq_pair) * (pairs_poolsz + PAIRS_POOLSZ));
+                    if ((tuple = srq_tuple_find(curname, (tsrq_tuple **)*_METHOD, *methodcount)) == NULL) {
+                        if (*methodcount >= pairs_poolsz) {
+                            if (_form == NULL) {
+                                _form = (tsrq_tuple **)malloc(sizeof(tsrq_tuple *) * PAIRS_POOLSZ);
+                            } else {
+                                _form = (tsrq_tuple **)realloc(_form, sizeof(tsrq_tuple *) * (pairs_poolsz + PAIRS_POOLSZ));
+                            }
+                            memset((_form + pairs_poolsz), 0, sizeof(tsrq_tuple *) * PAIRS_POOLSZ);
+                            pairs_poolsz += PAIRS_POOLSZ;
                         }
-                        memset((*_METHOD + pairs_poolsz), 0, sizeof(tsrq_pair) * PAIRS_POOLSZ);
-                        pairs_poolsz += PAIRS_POOLSZ;
+                        tuple = (tsrq_tuple *)malloc(sizeof(tsrq_tuple));
+                        memset(tuple, 0, sizeof(tsrq_tuple));
+                        tuple->name = strdup(curname);
+                        _form[(*methodcount)++] = tuple;
                     }
-                    ((tsrq_pair *)(*_METHOD))[*methodcount].name = strdup(curname);
 
                     index = 0;
                     current = FIELDVALUE;
@@ -370,6 +412,7 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
     char *file_ct;
     size_t file_len, chunk_len;
     size_t end_len, start_len;
+    tsrq_tuple *tuple;
     
     content_type = getenv("CONTENT_TYPE");
     boundary = content_type + strlen(MFD_STRING);
@@ -427,23 +470,29 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                                     }
                                     *ptr3 = '\0';
                                 }
-                                if (request->postcount >= pairs_poolsz) {
-                                    if (request->_POST == NULL) {
-                                        request->_POST = (tsrq_pair *)malloc(sizeof(tsrq_pair) * PAIRS_POOLSZ);
-
-                                    } else {
-                                        request->_POST = (tsrq_pair *)realloc(request->_POST, sizeof(tsrq_pair) * (pairs_poolsz + PAIRS_POOLSZ));
+                                if ((tuple = srq_tuple_find(ptr2, request->_POST, request->postcount)) == NULL) {
+                                    if (request->postcount >= pairs_poolsz) {
+                                        if (request->_POST == NULL) {
+                                            request->_POST = (tsrq_tuple **)malloc(sizeof(tsrq_tuple *) * PAIRS_POOLSZ);
+                                            
+                                        } else {
+                                            request->_POST = (tsrq_tuple **)realloc(request->_POST, sizeof(tsrq_tuple *) * (pairs_poolsz + PAIRS_POOLSZ));
+                                        }
+                                        memset((request->_POST + pairs_poolsz), 0, sizeof(tsrq_tuple *) * PAIRS_POOLSZ);
+                                        pairs_poolsz += PAIRS_POOLSZ;
                                     }
-                                    memset((request->_POST + pairs_poolsz), 0, sizeof(tsrq_pair) * PAIRS_POOLSZ);
-                                    pairs_poolsz += PAIRS_POOLSZ;
+                                    tuple = (tsrq_tuple *)malloc(sizeof(tsrq_tuple));
+                                    memset(tuple, 0, sizeof(tsrq_tuple));
+                                    tuple->name = strdup(ptr2);
+                                    request->_POST[request->postcount++] = tuple;
                                 }
-                                request->_POST[request->postcount].name = strdup(ptr2);
 
                                 if (ptr3) {
                                     *ptr3 = '"';
                                 }
                                 if ((tok1 = strtok_r(NULL, ";", &brm)) == NULL) {
                                     state = NEWPAIR;
+                                    tuple->valuescount++;
 
                                 } else {
                                     if (*tok1 == ' ') {
@@ -464,11 +513,16 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                                         }
                                         *ptr3 = '\0';
                                     }
-                                    request->_POST[request->postcount].value = strdup(ptr2);
+                                    if (tuple->valuescount == 0) {
+                                        tuple->values = (char **)malloc(tuple->valuescount + 1);
+                                    } else {
+                                        tuple->values = (char **)realloc(tuple->values, tuple->valuescount + 1);
+                                    }
+                                    tuple->values[tuple->valuescount] = strdup(ptr2);
                                     if (ptr3) {
                                         *ptr3 = '"';
                                     }
-                                    if (request->_POST[request->postcount].value[0] != '\0') {
+                                    if (tuple->values[tuple->valuescount][0] != '\0') {
                                         if (request->_FILES == NULL) {
                                             request->_FILES = (tsrq_file *)malloc(sizeof(tsrq_file));
 
@@ -476,7 +530,7 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                                             request->_FILES = (tsrq_file *)realloc(request->_FILES, sizeof(tsrq_file) * (request->filescount + 1));
                                         }
                                         memset((request->_FILES + request->filescount), 0, sizeof(tsrq_file));
-                                        request->_FILES[request->filescount].filename = strdup(request->_POST[request->postcount].value);
+                                        request->_FILES[request->filescount].filename = strdup(tuple->values[tuple->valuescount]);
                                     }
                                     state = NEWFILE;
                                 }
@@ -484,7 +538,7 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
 
                         } else if (strstr(buffer, MFD_CT_STRING) == buffer) {
                             ptr = buffer + strlen(MFD_CT_STRING);
-                            if (request->_POST[request->postcount].value[0] != '\0') {
+                            if (tuple->values[tuple->valuescount][0] != '\0') {
                                 request->_FILES[request->filescount].content_type = strdup(ptr);
                             }
 
@@ -508,23 +562,26 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                 } else {
                     *ptr = '\0';
                     if (strcmp(buffer, bound_end) == 0) {
-                        request->postcount++;
+                        tuple->valuescount++;
                         end = true;
 
                     } else if (strcmp(buffer, bound_start) == 0) {
-                        request->postcount++;
+                        tuple->valuescount++;
                         state = NEWPAIR;
 
                     } else {
-                        if (request->_POST[request->postcount].value == NULL) {
-                            request->_POST[request->postcount].value = strdup(buffer);
-
-                        } else {
-                            request->_POST[request->postcount].value = (char *)realloc(request->_POST[request->postcount].value,
-                                    strlen(request->_POST[request->postcount].value) + 1 + strlen(buffer) + 1);
-                            strcat(request->_POST[request->postcount].value, "\n");
-                            strcat(request->_POST[request->postcount].value, buffer);
-
+                        if (tuple) {
+                            if (tuple->values == NULL) {
+                                tuple->values = (char **)malloc(tuple->valuescount + 1);
+                                tuple->values[tuple->valuescount] = strdup(buffer);
+                                
+                            } else {
+                                tuple->values[tuple->valuescount] = (char *)realloc(tuple->values[tuple->valuescount],
+                                                                                    strlen(tuple->values[tuple->valuescount]) + 1
+                                                                                    + strlen(buffer) + 1);
+                                strcat(tuple->values[tuple->valuescount], "\n");
+                                strcat(tuple->values[tuple->valuescount], buffer);
+                            }
                         }
                         if (feof(stdin)) {
                             end = true;
@@ -555,7 +612,7 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                         file_len--;
                     }
                     if (file_len >= end_len && strcmp((file_ct + file_len - end_len), bound_end) == 0) {
-                        if (request->_POST[request->postcount].value[0] == '\0') {
+                        if (tuple->values[tuple->valuescount][0] == '\0') {
                             free(file_ct);
 
                         } else {
@@ -573,12 +630,12 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                                 request->_FILES[request->filescount].data = file_ct;
                             }
                             request->filescount++;
-                            request->postcount++;
+                            tuple->valuescount++;
                         }
                         endfile = true;
                         end = true;
                     } else if (file_len >= start_len && strcmp((file_ct + file_len - start_len), bound_startrn) == 0) {
-                        if (request->_POST[request->postcount].value[0] == '\0') {
+                        if (tuple->values[tuple->valuescount][0] == '\0') {
                             free(file_ct);
 
                         } else {
@@ -596,7 +653,7 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                                 request->_FILES[request->filescount].data = file_ct;
                             }
                             request->filescount++;
-                            request->postcount++;
+                            tuple->valuescount++;
                         }
                         endfile = true;
                         state = NEWPAIR;
