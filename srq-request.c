@@ -34,8 +34,6 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize);
 
 static void srq_pairs_free(tsrq_tuple ***tuples, size_t tuplescount);
 
-static tsrq_tuple * srq_tuple_find(const char *name, tsrq_tuple **tuples, size_t tuplescount);
-
 
 /*
  *
@@ -147,47 +145,7 @@ void srq_request_free(tsrq_request *request) {
 /*
  *
  */
-bool srq_pair_lookup(const char *name, tsrq_lookup lookup, tsrq_lookup *result) {
-    bool found = false;
-    int index;
-    int pairs_poolsz = 0;
-     
-    if (name == NULL || *name == '\0'
-        || lookup.tuples == NULL || lookup.tuplescount == 0) {
-        return(found);
-    }
-    
-    memset(result, 0, sizeof(tsrq_lookup));
-    for (index = 0; index < lookup.tuplescount; index++) {
-        if (strcasecmp(lookup.tuples[index]->name, name) == 0) {
-            found = true;
-            if (result == NULL) {
-                break;
-                
-            } else {
-                if (result->tuplescount >= pairs_poolsz) {
-                    if (result->tuples == NULL) {
-                        result->tuples = (tsrq_tuple **)malloc(sizeof(tsrq_tuple *) * PAIRS_POOLSZ);
-                        
-                    } else {
-                        result->tuples = (tsrq_tuple **)realloc(result->tuples, sizeof(tsrq_tuple *) * (pairs_poolsz + PAIRS_POOLSZ));
-                    }
-                    memset((result->tuples + pairs_poolsz), 0, sizeof(tsrq_tuple *) * PAIRS_POOLSZ);
-                    pairs_poolsz += PAIRS_POOLSZ;
-                }
-                result->tuples[result->tuplescount] = lookup.tuples[index];
-                result->tuplescount++;
-            }
-        }
-    }
-    return(found);
-}
-
-
-/*
- *
- */
-static tsrq_tuple * srq_tuple_find(const char *name, tsrq_tuple **tuples, size_t tuplescount) {
+tsrq_tuple * srq_tuple_find(const char *name, tsrq_tuple **tuples, size_t tuplescount) {
     size_t index;
 
     if (name == NULL || *name == '\0' || tuples == NULL || tuplescount == 0) {

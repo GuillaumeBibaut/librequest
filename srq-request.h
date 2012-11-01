@@ -43,7 +43,7 @@ tsrq_request * srq_request_parse(size_t maxfilesize);
 
 void srq_request_free(tsrq_request *request);
 
-bool srq_pair_lookup(const char *name, tsrq_lookup lookup, tsrq_lookup *result);
+tsrq_tuple * srq_tuple_find(const char *name, tsrq_tuple **tuples, size_t tuplescount);
 
 #endif /* __REQUEST_H__ */
 
