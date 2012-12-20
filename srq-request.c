@@ -3,6 +3,7 @@
 #include <string.h>
 #include <strings.h>
 #include <ctype.h>
+#include <stdbool.h>
 
 #include "srq-request.h"
 
@@ -12,7 +13,6 @@
 #define MFD_NEWLINE "\r\n"
 #define MFD_CHUNKSIZE (32 * 1024)
 
-#define SRQ_MAXFILESIZE (8 * 1024 * 1024)
 
 #define FNAMESZ MFD_CHUNKSIZE
 #define FVALUESZ MFD_CHUNKSIZE
@@ -393,11 +393,6 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                     if ((ptr = strcasestr(buffer, MFD_NEWLINE)) == buffer) {
                         oldstate = state;
                         state = (state == NEWPAIR ? READPAIR : (state == NEWFILE ? READFILE : NONE));
-                        /*
-                        if (state == READPAIR) {
-                            fgets(buffer, sizeof(buffer), stdin);
-                        }
-                        */
 
                     } else if (ptr == NULL) {
                         free(bound_start);

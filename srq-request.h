@@ -1,8 +1,6 @@
 #ifndef __REQUEST_H__
 #define __REQUEST_H__
 
-#include <stdbool.h>
-
 
 typedef struct srq_tuple {
     char *name;
@@ -29,6 +27,7 @@ typedef struct srq_request {
 
     tsrq_tuple **_POST;
     size_t postcount;
+    
     tsrq_file *_FILES;
     size_t filescount;
 
@@ -39,6 +38,9 @@ typedef struct srq_request {
 
 
 tsrq_request * srq_request_get(void);
+
+/* Default max file size set to 8MB */
+#define SRQ_MAXFILESIZE (8 * 1024 * 1024)
 tsrq_request * srq_request_parse(size_t maxfilesize);
 
 void srq_request_free(tsrq_request *request);
