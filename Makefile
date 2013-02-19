@@ -13,6 +13,6 @@ NO_MAN=             1
 WARNS=              2
 #DEBUG_FLAGS+=		-g -ggdb
 
-SHLIB_MAJOR=0.1.1
+#SHLIB_MAJOR=0.1.1
 
 .include <bsd.lib.mk>
