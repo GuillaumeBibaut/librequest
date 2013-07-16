@@ -1,6 +1,8 @@
 LIB=		request
 
 SRCS+=		srq-request.c
+SRCS+=		srq-tuple.c
+SRCS+=		srq-tuples.c
 
 WITHOUT_PROFILE=    1
 NO_PROFILE=         1

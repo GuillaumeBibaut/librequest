@@ -24,20 +24,15 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef __REQUEST_H__
-#define __REQUEST_H__
+#ifndef __SRQ_REQUEST_H__
+#define __SRQ_REQUEST_H__
 
+#include "srq-defs.h"
 
-typedef struct srq_tuple {
-    char *name;
-    char **values;
-    size_t valuescount;
-} tsrq_tuple;
+#include "srq-tuple.h"
+#include "srq-tuples.h"
 
-typedef struct srq_lookup {
-    tsrq_tuple **tuples;
-    size_t tuplescount;
-} tsrq_lookup;
+#include "srq-put.h"
 
 typedef struct srq_file {
     char *filename;
@@ -46,32 +41,27 @@ typedef struct srq_file {
     size_t length;
 } tsrq_file;
 
+typedef struct srq_files {
+    tsrq_file *files;
+    size_t count;
+} tsrq_files;
+
 typedef struct srq_request {
 
-    tsrq_tuple **_GET;
-    size_t getcount;
+    tsrq_tuples _GET;
 
-    tsrq_tuple **_POST;
-    size_t postcount;
+    tsrq_tuples _POST;
     
-    tsrq_file *_FILES;
-    size_t filescount;
+    tsrq_files _FILES;
 
-    char *_PUT;
-    size_t putcount;
+    tsrq_put _PUT;
 
 } tsrq_request;
 
 
 tsrq_request * srq_request_get(void);
-
-/* Default max file size set to 8MB */
-#define SRQ_MAXFILESIZE (8 * 1024 * 1024)
 tsrq_request * srq_request_parse(size_t maxfilesize);
-
 void srq_request_free(tsrq_request *request);
 
-tsrq_tuple * srq_tuple_find(const char *name, tsrq_tuple **tuples, size_t tuplescount);
-
-#endif /* __REQUEST_H__ */
+#endif /* __SRQ_REQUEST_H__ */
 
