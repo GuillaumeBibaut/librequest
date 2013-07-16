@@ -157,14 +157,11 @@ void srq_request_free(tsrq_request *request) {
             }
         }
         free(request->_FILES);
-        request->_FILES = NULL;
     }
     if (request->_PUT) {
         free(request->_PUT);
-        request->_PUT = NULL;
     }
     free(request);
-    request = NULL;
 }
 
 
@@ -207,7 +204,6 @@ static void srq_pairs_free(tsrq_tuple ***tuples, size_t tuplescount) {
         free((*tuples)[index]->values);
     }
     free(*tuples);
-    *tuples = NULL;
 }
 
 
