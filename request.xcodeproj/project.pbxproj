@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E938CCED17973AC000BFB270 /* srq-files.c in Sources */ = {isa = PBXBuildFile; fileRef = E938CCEC17973AC000BFB270 /* srq-files.c */; };
 		E98E168F1796AD820091B9B9 /* srq-defs.h in Headers */ = {isa = PBXBuildFile; fileRef = E98E16891796AD820091B9B9 /* srq-defs.h */; };
 		E98E16901796AD820091B9B9 /* srq-put.h in Headers */ = {isa = PBXBuildFile; fileRef = E98E168A1796AD820091B9B9 /* srq-put.h */; };
 		E98E16911796AD820091B9B9 /* srq-tuple.c in Sources */ = {isa = PBXBuildFile; fileRef = E98E168B1796AD820091B9B9 /* srq-tuple.c */; };
@@ -20,6 +21,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		E938CCEB179739E600BFB270 /* srq-files.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "srq-files.h"; sourceTree = "<group>"; };
+		E938CCEC17973AC000BFB270 /* srq-files.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "srq-files.c"; sourceTree = "<group>"; };
 		E98E16891796AD820091B9B9 /* srq-defs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "srq-defs.h"; sourceTree = "<group>"; };
 		E98E168A1796AD820091B9B9 /* srq-put.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "srq-put.h"; sourceTree = "<group>"; };
 		E98E168B1796AD820091B9B9 /* srq-tuple.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "srq-tuple.c"; sourceTree = "<group>"; };
@@ -83,6 +86,8 @@
 				E9D03391159F7A9900BF739C /* srq-request.h */,
 				E98E16A31796DBFD0091B9B9 /* srq-file.h */,
 				E98E16A51796DD510091B9B9 /* srq-file.c */,
+				E938CCEB179739E600BFB270 /* srq-files.h */,
+				E938CCEC17973AC000BFB270 /* srq-files.c */,
 			);
 			name = Sources;
 			sourceTree = "<group>";
@@ -157,6 +162,7 @@
 				E98E16911796AD820091B9B9 /* srq-tuple.c in Sources */,
 				E98E16931796AD820091B9B9 /* srq-tuples.c in Sources */,
 				E98E16A61796DD510091B9B9 /* srq-file.c in Sources */,
+				E938CCED17973AC000BFB270 /* srq-files.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

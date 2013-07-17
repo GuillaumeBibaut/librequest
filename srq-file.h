@@ -34,7 +34,7 @@ typedef struct srq_file {
     size_t length;
 } tsrq_file;
 
-tsrq_file *srq_file_create(const char *filename, const char *content_type);
+tsrq_file *srq_file_create(const char *filename);
 void srq_file_free(tsrq_file *file);
 
 #endif /* __SRQ_FILE_H__ */

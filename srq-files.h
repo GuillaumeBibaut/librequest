@@ -24,28 +24,18 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef __SRQ_REQUEST_H__
-#define __SRQ_REQUEST_H__
+#ifndef __SRQ_FILES_H__
+#define __SRQ_FILES_H__
 
-#include "srq-defs.h"
-#include "srq-tuple.h"
-#include "srq-tuples.h"
-#include "srq-put.h"
 #include "srq-file.h"
-#include "srq-files.h"
 
+typedef struct srq_files {
+    tsrq_file **files;
+    size_t count;
+} tsrq_files;
 
-typedef struct srq_request {
-    tsrq_tuples _GET;
-    tsrq_tuples _POST;
-    tsrq_files _FILES;
-    tsrq_put _PUT;
-} tsrq_request;
+tsrq_file *srq_files_add(tsrq_files *files, const char *filename);
 
+tsrq_file *srq_files_find(tsrq_files files, const char *filename);
 
-tsrq_request * srq_request_get(void);
-tsrq_request * srq_request_parse(size_t maxfilesize);
-void srq_request_free(tsrq_request *request);
-
-#endif /* __SRQ_REQUEST_H__ */
-
+#endif /* __SRQ_FILES_H__ */

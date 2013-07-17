@@ -24,28 +24,49 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef __SRQ_REQUEST_H__
-#define __SRQ_REQUEST_H__
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "srq-defs.h"
-#include "srq-tuple.h"
-#include "srq-tuples.h"
-#include "srq-put.h"
-#include "srq-file.h"
 #include "srq-files.h"
 
 
-typedef struct srq_request {
-    tsrq_tuples _GET;
-    tsrq_tuples _POST;
-    tsrq_files _FILES;
-    tsrq_put _PUT;
-} tsrq_request;
+/*
+ *
+ */
+tsrq_file *srq_files_add(tsrq_files *files, const char *filename) {
+    tsrq_file *file;
+    
+    if ((file = srq_files_find(*files, filename)) != NULL) {
+        return(NULL);
+    } else {
+        files->files = realloc(files->files, sizeof(tsrq_file *) * (files->count + 1));
+        if (files->files == NULL) {
+            return(NULL);
+        }
+        if ((file = srq_file_create(filename)) == NULL) {
+            return(NULL);
+        }
+        files->files[files->count] = file;
+        files->count++;
+    }
+    return(file);
+}
 
-
-tsrq_request * srq_request_get(void);
-tsrq_request * srq_request_parse(size_t maxfilesize);
-void srq_request_free(tsrq_request *request);
-
-#endif /* __SRQ_REQUEST_H__ */
+tsrq_file *srq_files_find(tsrq_files files, const char *filename) {
+    size_t index;
+    
+    if (filename == NULL || *filename == '\0') {
+        return(NULL);
+    }
+    if (files.count == 0 || files.files == NULL) {
+        return(NULL);
+    }
+    for (index = 0; index < files.count; index++) {
+        if (strcasecmp(files.files[index]->filename, filename) == 0) {
+            return(files.files[index]);
+        }
+    }
+    return(NULL);
+}
 
