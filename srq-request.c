@@ -328,10 +328,10 @@ static int srq_readform(enum request_method method, void *_METHOD) {
  *
  */
 static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
-    enum { NONE, NEWPAIR, READPAIR, NEWFILE, READFILE };
+    enum { NONE, NEWPAIR, READPAIR, NEWFILE, READFILE, NEWFIELD, READFIELD };
 
     char *ptr;
-    char buffer[MFD_CHUNKSIZE], *brm, *tok1, *ptr2, *ptr3;
+    char buffer[MFD_CHUNKSIZE + 1], *brm, *tok1, *ptr2, *ptr3;
     int state = NONE, oldstate = NONE;
     bool end, endfile;
     char *content_type;
@@ -340,12 +340,89 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
     size_t file_len, chunk_len;
     size_t end_len, start_len;
     tsrq_tuple *tuple;
+
+    size_t boundarysz, linesz;
+    char *eol;
     
     content_type = getenv("CONTENT_TYPE");
     boundary = content_type + strlen(MFD_STRING);
-    asprintf(&bound_start, "--%s", boundary);
-    asprintf(&bound_startrn, "--%s\r\n", boundary);
-    asprintf(&bound_end, "--%s--", boundary);
+    boundarysz = strlen(boundary);
+    
+    state = NONE;
+    oldstate = NONE;
+    while (fgets(buffer, MFD_CHUNKSIZE, stdin) != NULL) {
+        if ((eol = strstr(buffer, MFD_NEWLINE)) != NULL) {
+            *eol = '\0';
+        }
+        linesz = strlen(buffer);
+        if (linesz > 2 && buffer[0] == '-' && buffer[1] == '-') {
+            /* boundary : check if starting boundary or end */
+            ptr = buffer;
+            ptr += 2 + boundarysz;
+            if (*ptr != '\0' && *ptr == '-' && *(ptr + 1) == '-') {
+                break;
+            }
+        } else if (strcasestr(buffer, "content-disposition:") == buffer) {
+            /* new field/file */
+            ptr = buffer + strlen("content-disposition:");
+            while (isspace(*ptr))
+                ptr++;
+            if ((tok1 = strtok_r(ptr, ";", &brm)) == NULL) {
+                /* malformed */
+            }
+            if (strcasecmp(tok1, "form-data") == 0) {
+                state = NEWFIELD;
+                if ((tok1 = strtok_r(NULL, ";", &brm)) == NULL) {
+                    /* malformed */
+                }
+                while (isspace(*tok1))
+                    tok1++;
+                if (strcasestr(buffer, "name=") == NULL) {
+                    /* malformed */
+                }
+                tok1 += strlen("name=");
+                if (*tok1 == '"') {
+                    ptr2 = ++tok1;
+                    while (*ptr2 != '"')
+                        ptr2++;
+                    *ptr2 = '\0';
+                }
+                if ((tuple = srq_tuples_add(&(request->_POST), tok1, NULL)) == NULL) {
+                    /* memory exception */
+                }
+            } else if (strcasecmp(tok1, "attachment") == 0) {
+                state = NEWFILE;
+            }
+            if ((ptr = strcasestr(buffer, "filename=")) != NULL) {
+                state = NEWFILE;
+            }
+        } else if (strcasestr(buffer, "content-type:") == buffer) {
+            /* can be a file, or a new boundary (recursive ?) */
+        } else if (strcasestr(buffer, "content-transfer-encoding:") == buffer) {
+            /* another property on a file */
+        } else if (strcasestr(buffer, MFD_NEWLINE) == buffer) {
+            oldstate = state;
+            state = (state == NEWFIELD ? READFIELD : (state == NEWFILE ? READFILE : NONE));
+        } else {
+            /* read a field value or a file value */
+        }
+    }
+    
+    
+    
+    
+    if (asprintf(&bound_start, "--%s", boundary) == -1) {
+        return(1);
+    }
+    if (asprintf(&bound_startrn, "--%s\r\n", boundary) == -1) {
+        free(bound_start);
+        return(2);
+    }
+    if (asprintf(&bound_end, "--%s--", boundary) == -1) {
+        free(bound_start);
+        free(bound_startrn);
+        return(3);
+    }
     start_len = strlen(bound_startrn);
     end_len = strlen(bound_end);
 

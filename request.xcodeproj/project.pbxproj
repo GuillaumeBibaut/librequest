@@ -13,6 +13,8 @@
 		E98E16921796AD820091B9B9 /* srq-tuple.h in Headers */ = {isa = PBXBuildFile; fileRef = E98E168C1796AD820091B9B9 /* srq-tuple.h */; };
 		E98E16931796AD820091B9B9 /* srq-tuples.c in Sources */ = {isa = PBXBuildFile; fileRef = E98E168D1796AD820091B9B9 /* srq-tuples.c */; };
 		E98E16941796AD820091B9B9 /* srq-tuples.h in Headers */ = {isa = PBXBuildFile; fileRef = E98E168E1796AD820091B9B9 /* srq-tuples.h */; };
+		E98E16A41796DC020091B9B9 /* srq-file.h in Headers */ = {isa = PBXBuildFile; fileRef = E98E16A31796DBFD0091B9B9 /* srq-file.h */; };
+		E98E16A61796DD510091B9B9 /* srq-file.c in Sources */ = {isa = PBXBuildFile; fileRef = E98E16A51796DD510091B9B9 /* srq-file.c */; };
 		E9D03393159F7A9900BF739C /* srq-request.c in Sources */ = {isa = PBXBuildFile; fileRef = E9D03390159F7A9900BF739C /* srq-request.c */; };
 		E9D03394159F7A9900BF739C /* srq-request.h in Headers */ = {isa = PBXBuildFile; fileRef = E9D03391159F7A9900BF739C /* srq-request.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
@@ -24,6 +26,8 @@
 		E98E168C1796AD820091B9B9 /* srq-tuple.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "srq-tuple.h"; sourceTree = "<group>"; };
 		E98E168D1796AD820091B9B9 /* srq-tuples.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "srq-tuples.c"; sourceTree = "<group>"; };
 		E98E168E1796AD820091B9B9 /* srq-tuples.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "srq-tuples.h"; sourceTree = "<group>"; };
+		E98E16A31796DBFD0091B9B9 /* srq-file.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "srq-file.h"; sourceTree = "<group>"; };
+		E98E16A51796DD510091B9B9 /* srq-file.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "srq-file.c"; sourceTree = "<group>"; };
 		E9D03388159F7A7B00BF739C /* librequest.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = librequest.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9D0338F159F7A9900BF739C /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		E9D03390159F7A9900BF739C /* srq-request.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "srq-request.c"; sourceTree = "<group>"; };
@@ -77,6 +81,8 @@
 				E98E168E1796AD820091B9B9 /* srq-tuples.h */,
 				E9D03390159F7A9900BF739C /* srq-request.c */,
 				E9D03391159F7A9900BF739C /* srq-request.h */,
+				E98E16A31796DBFD0091B9B9 /* srq-file.h */,
+				E98E16A51796DD510091B9B9 /* srq-file.c */,
 			);
 			name = Sources;
 			sourceTree = "<group>";
@@ -93,6 +99,7 @@
 				E98E16901796AD820091B9B9 /* srq-put.h in Headers */,
 				E98E16921796AD820091B9B9 /* srq-tuple.h in Headers */,
 				E98E16941796AD820091B9B9 /* srq-tuples.h in Headers */,
+				E98E16A41796DC020091B9B9 /* srq-file.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -122,7 +129,7 @@
 		E9D0337F159F7A7A00BF739C /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0450;
+				LastUpgradeCheck = 0460;
 			};
 			buildConfigurationList = E9D03382159F7A7A00BF739C /* Build configuration list for PBXProject "request" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -149,6 +156,7 @@
 				E9D03393159F7A9900BF739C /* srq-request.c in Sources */,
 				E98E16911796AD820091B9B9 /* srq-tuple.c in Sources */,
 				E98E16931796AD820091B9B9 /* srq-tuples.c in Sources */,
+				E98E16A61796DD510091B9B9 /* srq-file.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -161,6 +169,10 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -188,6 +200,10 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_C_LANGUAGE_STANDARD = gnu99;

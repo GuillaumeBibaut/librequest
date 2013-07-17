@@ -28,18 +28,11 @@
 #define __SRQ_REQUEST_H__
 
 #include "srq-defs.h"
-
 #include "srq-tuple.h"
 #include "srq-tuples.h"
-
 #include "srq-put.h"
+#include "srq-file.h"
 
-typedef struct srq_file {
-    char *filename;
-    char *content_type;
-    char *data;
-    size_t length;
-} tsrq_file;
 
 typedef struct srq_files {
     tsrq_file *files;
@@ -47,15 +40,10 @@ typedef struct srq_files {
 } tsrq_files;
 
 typedef struct srq_request {
-
     tsrq_tuples _GET;
-
     tsrq_tuples _POST;
-    
     tsrq_files _FILES;
-
     tsrq_put _PUT;
-
 } tsrq_request;
 
 
