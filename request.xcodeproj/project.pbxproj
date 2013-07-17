@@ -7,11 +7,23 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E98E168F1796AD820091B9B9 /* srq-defs.h in Headers */ = {isa = PBXBuildFile; fileRef = E98E16891796AD820091B9B9 /* srq-defs.h */; };
+		E98E16901796AD820091B9B9 /* srq-put.h in Headers */ = {isa = PBXBuildFile; fileRef = E98E168A1796AD820091B9B9 /* srq-put.h */; };
+		E98E16911796AD820091B9B9 /* srq-tuple.c in Sources */ = {isa = PBXBuildFile; fileRef = E98E168B1796AD820091B9B9 /* srq-tuple.c */; };
+		E98E16921796AD820091B9B9 /* srq-tuple.h in Headers */ = {isa = PBXBuildFile; fileRef = E98E168C1796AD820091B9B9 /* srq-tuple.h */; };
+		E98E16931796AD820091B9B9 /* srq-tuples.c in Sources */ = {isa = PBXBuildFile; fileRef = E98E168D1796AD820091B9B9 /* srq-tuples.c */; };
+		E98E16941796AD820091B9B9 /* srq-tuples.h in Headers */ = {isa = PBXBuildFile; fileRef = E98E168E1796AD820091B9B9 /* srq-tuples.h */; };
 		E9D03393159F7A9900BF739C /* srq-request.c in Sources */ = {isa = PBXBuildFile; fileRef = E9D03390159F7A9900BF739C /* srq-request.c */; };
 		E9D03394159F7A9900BF739C /* srq-request.h in Headers */ = {isa = PBXBuildFile; fileRef = E9D03391159F7A9900BF739C /* srq-request.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		E98E16891796AD820091B9B9 /* srq-defs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "srq-defs.h"; sourceTree = "<group>"; };
+		E98E168A1796AD820091B9B9 /* srq-put.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "srq-put.h"; sourceTree = "<group>"; };
+		E98E168B1796AD820091B9B9 /* srq-tuple.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "srq-tuple.c"; sourceTree = "<group>"; };
+		E98E168C1796AD820091B9B9 /* srq-tuple.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "srq-tuple.h"; sourceTree = "<group>"; };
+		E98E168D1796AD820091B9B9 /* srq-tuples.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "srq-tuples.c"; sourceTree = "<group>"; };
+		E98E168E1796AD820091B9B9 /* srq-tuples.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "srq-tuples.h"; sourceTree = "<group>"; };
 		E9D03388159F7A7B00BF739C /* librequest.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = librequest.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9D0338F159F7A9900BF739C /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		E9D03390159F7A9900BF739C /* srq-request.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "srq-request.c"; sourceTree = "<group>"; };
@@ -57,6 +69,12 @@
 		E9D03396159F7B4A00BF739C /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				E98E16891796AD820091B9B9 /* srq-defs.h */,
+				E98E168A1796AD820091B9B9 /* srq-put.h */,
+				E98E168B1796AD820091B9B9 /* srq-tuple.c */,
+				E98E168C1796AD820091B9B9 /* srq-tuple.h */,
+				E98E168D1796AD820091B9B9 /* srq-tuples.c */,
+				E98E168E1796AD820091B9B9 /* srq-tuples.h */,
 				E9D03390159F7A9900BF739C /* srq-request.c */,
 				E9D03391159F7A9900BF739C /* srq-request.h */,
 			);
@@ -71,6 +89,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				E9D03394159F7A9900BF739C /* srq-request.h in Headers */,
+				E98E168F1796AD820091B9B9 /* srq-defs.h in Headers */,
+				E98E16901796AD820091B9B9 /* srq-put.h in Headers */,
+				E98E16921796AD820091B9B9 /* srq-tuple.h in Headers */,
+				E98E16941796AD820091B9B9 /* srq-tuples.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,6 +147,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				E9D03393159F7A9900BF739C /* srq-request.c in Sources */,
+				E98E16911796AD820091B9B9 /* srq-tuple.c in Sources */,
+				E98E16931796AD820091B9B9 /* srq-tuples.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

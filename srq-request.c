@@ -82,7 +82,7 @@ tsrq_request * srq_request_parse(size_t maxfilesize) {
 
     if ((ptr = (char *)getenv("REQUEST_METHOD")) == NULL) {
 #if defined(DEBUG)
-        fprintf(stderr, "%s: env. REQUEST_METHOD not set, at line %d\n", __func__, strerror(errno), __LINE__);
+        fprintf(stderr, "%s: env. REQUEST_METHOD not set, at line %d\n", __func__, __LINE__);
 #endif
         srq_request_free(request);
         return(NULL);
@@ -99,14 +99,14 @@ tsrq_request * srq_request_parse(size_t maxfilesize) {
     if (strcasecmp(ptr, "POST") == 0) {
         if (getenv("CONTENT_LENGTH") == NULL) {
 #if defined(DEBUG)
-            fprintf(stderr, "%s: env. CONTENT_LENGTH not set, at line %d\n", __func__, strerror(errno), __LINE__);
+            fprintf(stderr, "%s: env. CONTENT_LENGTH not set, at line %d\n", __func__, __LINE__);
 #endif
             srq_request_free(request);
             return(NULL);
         }
         if ((ptr = getenv("CONTENT_TYPE")) == NULL) {
 #if defined(DEBUG)
-            fprintf(stderr, "%s: env. CONTENT_TYPE not set, at line %d\n", __func__, strerror(errno), __LINE__);
+            fprintf(stderr, "%s: env. CONTENT_TYPE not set, at line %d\n", __func__, __LINE__);
 #endif
             srq_request_free(request);
             return(NULL);
@@ -126,7 +126,7 @@ tsrq_request * srq_request_parse(size_t maxfilesize) {
     } else if (strcasecmp(ptr, "PUT") == 0) {
         if (getenv("CONTENT_LENGTH") == NULL) {
 #if defined(DEBUG)
-            fprintf(stderr, "%s: env. CONTENT_LENGTH not set, at line %d\n", __func__, strerror(errno), __LINE__);
+            fprintf(stderr, "%s: env. CONTENT_LENGTH not set, at line %d\n", __func__, __LINE__);
 #endif
             srq_request_free(request);
             return(NULL);
