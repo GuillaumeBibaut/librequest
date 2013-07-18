@@ -55,6 +55,10 @@ enum request_method {POST, GET, PUT};
 static int srq_readform(enum request_method method, void *_METHOD);
 static int srq_readmfd(tsrq_request *request, size_t maxfilesize);
 
+int srq_mfd_readfile(tsrq_file *file, const char *bound);
+int srq_mfd_readfield(tsrq_tuple *tuple, const char *bound);
+int srq_multipart(int state, char *bound, tsrq_request *request, tsrq_tuple *tuple);
+
 
 /*
  *
@@ -319,40 +323,46 @@ static int srq_readform(enum request_method method, void *_METHOD) {
 /*
  *
  */
+enum { MFD_NONE, MFD_NEWFILE, MFD_READFILE, MFD_NEWFIELD, MFD_READFIELD, MFD_INNERBOUND };
 static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
-    enum { NONE, NEWFILE, READFILE, NEWFIELD, READFIELD };
-
-    char *ptr;
-    char buffer[MFD_CHUNKSIZE + 1], *brm, *tok1, *ptr2, *ptr3;
-    int state = NONE, oldstate = NONE;
-    bool end, endfile;
-    char *content_type;
-    char *boundary, *bound_start, *bound_startrn, *bound_end;
-    char *file_ct;
-    size_t file_len, chunk_len;
-    size_t end_len, start_len;
-    tsrq_tuple *tuple;
-    tsrq_file *file;
-
-    char *bound, *innerbound;
-    size_t boundsz, linesz;
-    char *eol;
-    int cmp1, cmp2;
+    char *content_type, *bound;
     
     content_type = getenv("CONTENT_TYPE");
     bound = content_type + strlen(MFD_STRING);
-    boundsz = strlen(bound);
+
+    if (srq_multipart(MFD_NONE, bound, request, NULL) != 0) {
+        return(1);
+    }
+
+    return(0);
+}
+
+
+/*
+ *
+ */
+int srq_multipart(int state, char *bound, tsrq_request *request, tsrq_tuple *tuple) {
+    char buffer[MFD_CHUNKSIZE + 1], innerbound[256 + 1];;
+    char *tok1, *brm, *ptr, *ptr2;
+    int cmp1;
+    size_t linesz, boundsz;
+    char *eol;
+    tsrq_file *file;
     
-    state = NONE;
-    while (fgets(buffer, MFD_CHUNKSIZE, stdin) != NULL) {
+    file = NULL;
+    boundsz = strlen(bound);
+    while (!feof(stdin) && fgets(buffer, MFD_CHUNKSIZE, stdin) != NULL) {
         if ((eol = strstr(buffer, MFD_NEWLINE)) != NULL) {
             *eol = '\0';
         }
         linesz = strlen(buffer);
         if (linesz > 2 && buffer[0] == '-' && buffer[1] == '-') {
             /* boundary : check if starting boundary or end */
-            ptr = buffer;
-            ptr += 2 + boundsz;
+            ptr = buffer + 2;
+            if (strncmp(ptr, bound, boundsz) != 0) {
+                return(20);
+            }
+            ptr += boundsz;
             if (*ptr != '\0' && *ptr == '-' && *(ptr + 1) == '-') {
                 break;
             }
@@ -364,19 +374,20 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
             brm = NULL;
             if ((tok1 = strtok_r(ptr, ";", &brm)) == NULL) {
                 /* malformed */
+                return(1);
             }
-            cmp1 = -1;
-            cmp2 = -1;
             if ((cmp1 = strcasecmp(tok1, "form-data")) == 0
-                || (cmp2 = strcasecmp(tok1, "attachment")) == 0) {
+                || strcasecmp(tok1, "attachment") == 0) {
                 if (cmp1 == 0) {
                     if ((tok1 = strtok_r(NULL, ";", &brm)) == NULL) {
                         /* malformed */
+                        return(2);
                     }
                     while (isspace(*tok1))
                         tok1++;
                     if (strcasestr(tok1, "name=") == NULL) {
                         /* malformed */
+                        return(3);
                     }
                     tok1 += strlen("name=");
                     if (*tok1 == '"') {
@@ -387,14 +398,16 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                     }
                     if ((tuple = srq_tuples_add(&(request->_POST), tok1, NULL)) == NULL) {
                         /* memory exception */
+                        return(4);
                     }
-                    state = NEWFIELD;
+                    state = MFD_NEWFIELD;
                 }
                 if ((tok1 = strtok_r(NULL, ";", &brm)) != NULL) {
                     while (isspace(*tok1))
                         tok1++;
                     if (strcasestr(tok1, "filename=") == NULL) {
                         /* malformed */
+                        return(5);
                     }
                     if (*tok1 == '"') {
                         ptr2 = ++tok1;
@@ -404,14 +417,17 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                     }
                     if ((file = srq_files_add(&(request->_FILES), tok1)) == NULL) {
                         /* memory exception or already a file with the same name */
+                        return(6);
                     }
                     if (srq_tuple_add_value(tuple, tok1) != 0) {
                         /* memory exception */
+                        return(7);
                     }
-                    state = NEWFILE;
+                    state = MFD_NEWFILE;
                 }
             } else {
                 /* what ?? malformed */
+                return(8);
             }
         } else if (strcasestr(buffer, "content-type:") == buffer) {
             /* can be a file, or a new boundary (recursive ?) */
@@ -422,289 +438,129 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
                 brm = NULL;
                 if ((tok1 = strtok_r(ptr, ";", &brm)) == NULL) {
                     /* malformed */
+                    return(9);
                 }
                 if ((tok1 = strtok_r(NULL, ";", &brm)) == NULL) {
                     /* malformed */
+                    return(10);
                 }
                 while (isspace(*tok1))
                     tok1++;
                 if (strcasestr(tok1, "boundary=") == NULL) {
                     /* malformed */
+                    return(11);
                 }
                 tok1 += strlen("boundary=");
+                strcpy(innerbound, tok1);
+                state = MFD_INNERBOUND;
+            } else if (file) {
+                
+                file->content_type = strdup(ptr);
             }
         } else if (strcasestr(buffer, "content-transfer-encoding:") == buffer) {
-            /* another property on a file, useful ? same readfile method */
+            
+            /* TODO another property on a file, same readfile method */
+            
         } else if (strcasestr(buffer, MFD_NEWLINE) == buffer) {
-            state = (state == NEWFIELD ? READFIELD : (state == NEWFILE ? READFILE : NONE));
-        } else {
-            if (state == READFIELD) {
-                if (srq_readfile()) {
+            state = (state == MFD_NEWFIELD ? MFD_READFIELD :
+                     (state == MFD_NEWFILE ? MFD_READFILE :
+                      (state == MFD_INNERBOUND ? state : MFD_NONE)));
+            if (state == MFD_READFIELD) {
+                if (srq_mfd_readfile(file, bound) != 0) {
+                    /* couldn't read file, malformed */
+                    return(12);
+                }
+            } else if (state == MFD_READFIELD) {
+                if (srq_mfd_readfield(tuple, bound) != 0) {
+                    /* couldn't read field, malformed */
+                    return(13);
+                }
+            } else if (state == MFD_INNERBOUND) {
+                if (srq_multipart(state, innerbound, request, tuple) != 0) {
+                    /* something was malformed */
+                    return(14);
                 }
             }
         }
     }
-    
-    
-    
-    
-//    if (asprintf(&bound_start, "--%s", boundary) == -1) {
-//        return(1);
-//    }
-//    if (asprintf(&bound_startrn, "--%s\r\n", boundary) == -1) {
-//        free(bound_start);
-//        return(2);
-//    }
-//    if (asprintf(&bound_end, "--%s--", boundary) == -1) {
-//        free(bound_start);
-//        free(bound_startrn);
-//        return(3);
-//    }
-//    start_len = strlen(bound_startrn);
-//    end_len = strlen(bound_end);
-//
-//    end = false;
-//    do {
-//        switch (state) {
-//            case NONE:
-//            case NEWPAIR:
-//            case NEWFILE:
-//                if (feof(stdin)) {
-//                    end = true;
-//                } else {
-//                    fgets(buffer, sizeof(buffer), stdin);
-//                    if ((ptr = strcasestr(buffer, MFD_NEWLINE)) == buffer) {
-//                        oldstate = state;
-//                        state = (state == NEWPAIR ? READPAIR : (state == NEWFILE ? READFILE : NONE));
-//
-//                    } else if (ptr == NULL) {
-//                        free(bound_start);
-//                        free(bound_end);
-//                        free(bound_startrn);
-//                        return(3);
-//
-//                    } else {
-//                        *ptr = '\0';
-//                        if (strcmp(buffer, bound_end) == 0) {
-//                            end = true;
-//
-//                        } else if (strcmp(buffer, bound_start) == 0) {
-//                            oldstate = state;
-//                            state = NEWPAIR;
-//
-//                        } else if (strcasestr(buffer, MFD_CD_STRING) == buffer) {
-//                            ptr = buffer + strlen(MFD_CD_STRING);
-//                            if ((tok1 = strtok_r(ptr, ";", &brm)) != NULL) {
-//                                if (strcasestr(tok1, "name=") != tok1) {
-//                                    free(bound_start);
-//                                    free(bound_end);
-//                                    free(bound_startrn);
-//                                    return(4);
-//                                }
-//                                ptr3 = NULL;
-//                                ptr2 = tok1 + strlen("name=");
-//                                if (*ptr2 == '"') {
-//                                    ptr3 = ++ptr2;
-//                                    while (*ptr3 != '"') {
-//                                        ptr3++;
-//                                    }
-//                                    *ptr3 = '\0';
-//                                }
-//                                if ((tuple = srq_tuples_add(&(request->_POST), ptr2, NULL)) == NULL) {
-//                                    free(bound_start);
-//                                    free(bound_end);
-//                                    free(bound_startrn);
-//                                    return(42);
-//                                }
-//
-//                                if (ptr3) {
-//                                    *ptr3 = '"';
-//                                }
-//                                if ((tok1 = strtok_r(NULL, ";", &brm)) == NULL) {
-//                                    oldstate = state;
-//                                    state = NEWPAIR;
-//
-//                                } else {
-//                                    if (*tok1 == ' ') {
-//                                        tok1++;
-//                                    }
-//                                    if (strcasestr(tok1, "filename=") != tok1) {
-//                                        free(bound_start);
-//                                        free(bound_end);
-//                                        free(bound_startrn);
-//                                        return(5);
-//                                    }
-//                                    ptr3 = NULL;
-//                                    ptr2 = tok1 + strlen("filename=");
-//                                    if (*ptr2 == '"') {
-//                                        ptr3 = ++ptr2;
-//                                        while (*ptr3 != '"') {
-//                                            ptr3++;
-//                                        }
-//                                        *ptr3 = '\0';
-//                                    }
-//                                    if (srq_tuple_add_value(tuple, ptr2) != 0) {
-//                                        free(bound_start);
-//                                        free(bound_end);
-//                                        free(bound_startrn);
-//                                        return(43);
-//                                    }
-//                                    if (ptr3) {
-//                                        *ptr3 = '"';
-//                                    }
-//                                    if (*ptr2 != '\0') {
-//                                        request->_FILES.files = (tsrq_file *)realloc(request->_FILES.files, sizeof(tsrq_file) * (request->_FILES.count + 1));
-//                                        memset((request->_FILES.files + request->_FILES.count), 0, sizeof(tsrq_file));
-//                                        request->_FILES.files[request->_FILES.count].filename = strdup(ptr2);
-//                                    }
-//                                    oldstate = state;
-//                                    state = NEWFILE;
-//                                }
-//                            }
-//
-//                        } else if (strcasestr(buffer, MFD_CT_STRING) == buffer) {
-//                            ptr = buffer + strlen(MFD_CT_STRING);
-//                            if (*(tuple->values[tuple->valuescount - 1]) != '\0') {
-//                                request->_FILES.files[request->_FILES.count].content_type = strdup(ptr);
-//                            }
-//
-//                        } else {
-//                            free(bound_start);
-//                            free(bound_end);
-//                            free(bound_startrn);
-//                            return(6);
-//                        }
-//                    }
-//                }
-//                break;
-//
-//            case READPAIR:
-//                fgets(buffer, sizeof(buffer), stdin);
-//                if (feof(stdin)) {
-//                    end = true;
-//                }
-//                if ((ptr = strcasestr(buffer, MFD_NEWLINE)) == NULL) {
-//                    free(bound_start);
-//                    free(bound_end);
-//                    free(bound_startrn);
-//                    return(7);
-//
-//                } else {
-//                    *ptr = '\0';
-//                    if (strcmp(buffer, bound_end) == 0) {
-//                        end = true;
-//
-//                    } else if (strcmp(buffer, bound_start) == 0) {
-//                        oldstate = state;
-//                        state = NEWPAIR;
-//
-//                    } else {
-//                        if (tuple) {
-//                            if (tuple->valuescount == 0) {
-//                                if (srq_tuple_add_value(tuple, buffer) != 0) {
-//                                    free(bound_start);
-//                                    free(bound_end);
-//                                    free(bound_startrn);
-//                                    return(44);
-//                                }
-//                            } else {
-//                                if (oldstate == NEWPAIR) {
-//                                    if (srq_tuple_add_value(tuple, buffer) != 0) {
-//                                        free(bound_start);
-//                                        free(bound_end);
-//                                        free(bound_startrn);
-//                                        return(45);
-//                                    }
-//                                } else {
-//                                    tuple->values[tuple->valuescount - 1] = realloc(tuple->values[tuple->valuescount - 1],
-//                                            strlen(tuple->values[tuple->valuescount - 1]) + 1 + strlen(buffer) + 1);
-//                                    if (tuple->values[tuple->valuescount - 1] == NULL) {
-//                                        free(bound_start);
-//                                        free(bound_end);
-//                                        free(bound_startrn);
-//                                        return(46);
-//                                    }
-//                                    strcat(tuple->values[tuple->valuescount - 1], "\n");
-//                                    strcat(tuple->values[tuple->valuescount - 1], buffer);
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//                break;
-//                
-//            case READFILE:
-//                file_len = 0;
-//                file_ct = (char *)malloc(MFD_CHUNKSIZE);
-//                memset(file_ct, 0, MFD_CHUNKSIZE);
-//                chunk_len = MFD_CHUNKSIZE;
-//                endfile = false;
-//                do {
-//                    if (file_len >= chunk_len) {
-//                        file_ct = (char *)realloc(file_ct, chunk_len + MFD_CHUNKSIZE);
-//                        chunk_len += MFD_CHUNKSIZE;
-//                    }
-//                    file_ct[file_len] = (char)fgetc(stdin);
-//                    file_len++;
-//                    if (feof(stdin)) {
-//                        endfile = true;
-//                        end = true;
-//                        file_len--;
-//                    }
-//                    if (file_len >= end_len && strcmp((file_ct + file_len - end_len), bound_end) == 0) {
-//                        if (tuple->values[tuple->valuescount - 1] == '\0') {
-//                            free(file_ct);
-//
-//                        } else {
-//                            request->_FILES.files[request->_FILES.count].length = (file_len - end_len);
-//                            if (request->_FILES.files[request->_FILES.count].length > 2) {
-//                                request->_FILES.files[request->_FILES.count].length -= 2;
-//                            }
-//                            if (request->_FILES.files[request->_FILES.count].length > maxfilesize) {
-//                                free(request->_FILES.files[request->_FILES.count].data);
-//                                request->_FILES.files[request->_FILES.count].data = NULL;
-//                                request->_FILES.files[request->_FILES.count].length = -1;
-//
-//                            } else {
-//                                file_ct = (char *)realloc(file_ct, request->_FILES.files[request->_FILES.count].length);
-//                                request->_FILES.files[request->_FILES.count].data = file_ct;
-//                            }
-//                            request->_FILES.count++;
-//                        }
-//                        endfile = true;
-//                        end = true;
-//                    } else if (file_len >= start_len && strcmp((file_ct + file_len - start_len), bound_startrn) == 0) {
-//                        if (tuple->values[tuple->valuescount - 1] == '\0') {
-//                            free(file_ct);
-//
-//                        } else {
-//                            request->_FILES.files[request->_FILES.count].length = (file_len - start_len);
-//                            if (request->_FILES.files[request->_FILES.count].length > 2) {
-//                                request->_FILES.files[request->_FILES.count].length -= 2;
-//                            }
-//                            if (request->_FILES.files[request->_FILES.count].length > maxfilesize) {
-//                                free(request->_FILES.files[request->_FILES.count].data);
-//                                request->_FILES.files[request->_FILES.count].data = NULL;
-//                                request->_FILES.files[request->_FILES.count].length = -1;
-//
-//                            } else {
-//                                file_ct = (char *)realloc(file_ct, request->_FILES.files[request->_FILES.count].length);
-//                                request->_FILES.files[request->_FILES.count].data = file_ct;
-//                            }
-//                            request->_FILES.count++;
-//                        }
-//                        endfile = true;
-//                        oldstate = state;
-//                        state = NEWPAIR;
-//                    }
-//                } while (!endfile);
-//                break;
-//        }
-//    } while (!end);
-//    free(bound_start);
-//    free(bound_end);
-//    free(bound_startrn);
-
     return(0);
 }
 
+
+/*
+ *
+ */
+int srq_mfd_readfile(tsrq_file *file, const char *bound) {
+    size_t capacity;
+    size_t size;
+    char c;
+    char bstart[256 + 1], bend[256 + 1];
+    size_t bstartsz, bendsz;
+    bool endfile;
+    
+    snprintf(bstart, 256, "%s--%s", MFD_NEWLINE, bound);
+    bstartsz = strlen(bstart);
+    snprintf(bend, 256, "%s--%s--", MFD_NEWLINE, bound);
+    bendsz = strlen(bend);
+    size = 0;
+    capacity = 0;
+    endfile = false;
+    while (!feof(stdin) && (c = (char)fgetc(stdin)) != EOF && !endfile) {
+        if (size >= capacity) {
+            file->data = realloc(file->data, sizeof(char) * (capacity + MFD_CHUNKSIZE));
+            if (file->data == NULL) {
+                return(1);
+            }
+            capacity += MFD_CHUNKSIZE;
+        }
+        file->data[size] = c;
+        size++;
+        if (size > bstartsz && strncmp(file->data + (size - bstartsz), bstart, bstartsz) == 0) {
+            endfile = true;
+            file->length = size - bstartsz;
+        } else if (size > bendsz && strncmp(file->data + (size - bendsz), bend, bendsz) == 0) {
+            endfile = true;
+            file->length = size - bendsz;
+        }
+    }
+    if (feof(stdin) && !endfile) {
+        /* no end of bound found, malformed */
+        return(2);
+    } else if (!feof(stdin)) {
+        fgets(bstart, 256, stdin);
+    }
+    return(0);
+}
+
+
+/*
+ *
+ */
+int srq_mfd_readfield(tsrq_tuple *tuple, const char *bound) {
+    char buffer[MFD_CHUNKSIZE + 1];
+    bool endfield;
+    char bstart[256 + 1], bend[256 + 1];
+    
+    snprintf(bstart, 256, "--%s", bound);
+    snprintf(bend, 256, "--%s--", bound);
+    endfield = false;
+    while (!feof(stdin) && fgets(buffer, MFD_CHUNKSIZE, stdin) != NULL && !endfield) {
+        if (strstr(buffer, bstart) == buffer) {
+            endfield = true;
+        } else if (strstr(buffer, bend) == buffer) {
+            endfield = true;
+        } else {
+            /* join value */
+            if (srq_tuple_join_value(tuple, buffer) != 0) {
+                /* memory exception */
+                return(1);
+            }
+        }
+    }
+    if (feof(stdin) && !endfield) {
+        /* no end of bound found, malformed */
+        return(2);
+    }
+    
+    return(0);
+}

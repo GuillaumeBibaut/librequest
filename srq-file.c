@@ -33,7 +33,6 @@ void srq_file_free(tsrq_file *file) {
     if (file->filename) {
         free(file->filename);
     }
-    free(file->filename);
     if (file->content_type) {
         free(file->content_type);
     }

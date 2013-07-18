@@ -39,5 +39,6 @@ tsrq_tuple * srq_tuple_create(const char *name, const char *value);
 void srq_tuple_free(tsrq_tuple *tuple);
 
 int srq_tuple_add_value(tsrq_tuple *tuple, const char *value);
+int srq_tuple_join_value(tsrq_tuple *tuple, const char *value);
 
 #endif /* __SRQ_TUPLE_H__ */
