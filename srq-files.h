@@ -32,6 +32,7 @@
 typedef struct srq_files {
     tsrq_file **files;
     size_t count;
+    size_t maxfilesize;
 } tsrq_files;
 
 tsrq_file *srq_files_add(tsrq_files *files, const char *filename);

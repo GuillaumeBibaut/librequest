@@ -55,7 +55,7 @@ enum request_method {POST, GET, PUT};
 static int srq_readform(enum request_method method, void *_METHOD);
 static int srq_readmfd(tsrq_request *request, size_t maxfilesize);
 
-int srq_mfd_readfile(tsrq_file *file, const char *bound);
+int srq_mfd_readfile(tsrq_file *file, const char *bound, size_t maxfilesize);
 int srq_mfd_readfield(tsrq_tuple *tuple, const char *bound);
 int srq_multipart(int state, char *bound, tsrq_request *request, tsrq_tuple *tuple);
 
@@ -83,6 +83,7 @@ tsrq_request * srq_request_parse(size_t maxfilesize) {
 #endif
         return(NULL);
     }
+    request->_FILES.maxfilesize = maxfilesize;
 
     if ((ptr = (char *)getenv("REQUEST_METHOD")) == NULL) {
 #if defined(DEBUG)
@@ -480,7 +481,7 @@ int srq_multipart(int state, char *bound, tsrq_request *request, tsrq_tuple *tup
                      (state == MFD_NEWFILE ? MFD_READFILE :
                       (state == MFD_INNERBOUND ? state : MFD_NONE)));
             if (state == MFD_READFILE) {
-                if (srq_mfd_readfile(file, bound) != 0) {
+                if (srq_mfd_readfile(file, bound, request->_FILES.maxfilesize) != 0) {
                     /* couldn't read file, malformed */
                     return(12);
                 }
@@ -504,21 +505,24 @@ int srq_multipart(int state, char *bound, tsrq_request *request, tsrq_tuple *tup
 /*
  *
  */
-int srq_mfd_readfile(tsrq_file *file, const char *bound) {
+int srq_mfd_readfile(tsrq_file *file, const char *bound, size_t maxfilesize) {
     size_t capacity;
-    size_t size;
-    char c;
+    size_t size, pos;
+    char c, *data;
     char bstart[256 + 1], bend[256 + 1];
-    size_t bstartsz, bendsz;
-    bool endfile;
+    size_t bstartsz, bendsz, nlsz;
+    bool endfile, max, found;
     
     snprintf(bstart, 256, "%s--%s", MFD_NEWLINE, bound);
     bstartsz = strlen(bstart);
     snprintf(bend, 256, "%s--%s--", MFD_NEWLINE, bound);
     bendsz = strlen(bend);
+    nlsz = strlen(MFD_NEWLINE);
     size = 0;
     capacity = 0;
     endfile = false;
+    max = false;
+    found = false;
     while (!endfile && !feof(stdin)) {
         c = (char)fgetc(stdin);
         if (size >= capacity) {
@@ -537,10 +541,50 @@ int srq_mfd_readfile(tsrq_file *file, const char *bound) {
             endfile = true;
             file->length = size - bendsz;
         }
+        if (size > maxfilesize) {
+            /* maxfilesize can be set through srq_request_parse function */
+            max = true;
+            data = file->data;
+            file->data = NULL;
+            capacity = 0;
+            /* Let's trying to keep moving into the stream */
+            pos = size - (nlsz + 2);
+            while (pos >= (size - MFD_CHUNKSIZE)) {
+                if (strnstr(data, MFD_NEWLINE, nlsz) == data
+                    && strnstr(data + nlsz, "--", 2) == (data + nlsz)) {
+                    /* something looks like a boundary, try to keep that part */
+                    found = true;
+                    file->data = realloc(file->data, sizeof(char) * MFD_CHUNKSIZE);
+                    if (file->data == NULL) {
+                        file->data = data;
+                        return(2);
+                    }
+                    memcpy(file->data, (data + pos + nlsz), (size - pos - nlsz));
+                    capacity = MFD_CHUNKSIZE;
+                    size -= (pos + nlsz);
+                    free(data);
+                    break;
+                }
+                pos--;
+            }
+            if (!found) {
+                /* nothing like a boundary, reset */
+                capacity = 0;
+                size = 0;
+                free(data);
+            }
+            found = false;
+        }
+    }
+    if (max) {
+        /* file size was too big */
+        free(file->data);
+        file->data = NULL;
+        file->length = 0;
     }
     if (feof(stdin) && !endfile) {
         /* no end of bound found, malformed */
-        return(2);
+        return(3);
     } else if (!feof(stdin)) {
         fgets(bstart, 256, stdin);
     }

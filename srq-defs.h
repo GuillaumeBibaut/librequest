@@ -28,7 +28,7 @@
 #define __SRQ_DEFS_H__
 
 /* Default max file size set to 8MB */
-#define SRQ_MAXFILESIZE (8 * 1024 * 1024)
+#define SRQ_MAXFILESIZE (8 * 1024U * 1024U)
 
 #define DEFAULT_POOLSZ 4
 
