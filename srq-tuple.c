@@ -84,29 +84,23 @@ int srq_tuple_add_value(tsrq_tuple *tuple, const char *value) {
 
 
 int srq_tuple_join_value(tsrq_tuple *tuple, const char *value) {
+    size_t index;
     size_t valuesz;
     size_t currentsz;
     
     if (value != NULL) {
-        if (tuple->values == NULL) {
-            tuple->values = realloc(tuple->values, sizeof(char *));
-            if (tuple->values == NULL) {
-                return(1);
-            }
-            tuple->valuescount = 1;
-            tuple->values[0] = NULL;
-        }
+        index = tuple->valuescount - 1;
         currentsz = 0;
-        if (tuple->values[0] != NULL) {
-            currentsz = strlen(tuple->values[0]);
+        if (tuple->values[index] != NULL) {
+            currentsz = strlen(tuple->values[index]);
         }
         valuesz = strlen(value);
-        tuple->values[0] = realloc(tuple->values[0], currentsz + valuesz + 1);
-        if (tuple->values[0] == NULL) {
+        tuple->values[index] = realloc(tuple->values[index], sizeof(char) * (currentsz + valuesz + 1));
+        if (tuple->values[index] == NULL) {
             return(2);
         }
-        memcpy(tuple->values[0] + currentsz, value, valuesz);
-        tuple->values[0][currentsz + valuesz] = '\0';
+        memcpy(tuple->values[index] + currentsz, value, valuesz);
+        tuple->values[index][currentsz + valuesz] = '\0';
     }
     return(0);
 }

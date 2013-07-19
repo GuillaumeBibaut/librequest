@@ -246,10 +246,11 @@ static int srq_readform(enum request_method method, void *_METHOD) {
                     }
                     break;
                 case GET:
-                    c = *(ptr++);
+                    c = *ptr;
                     if (c == '\0') {
                         end = true;
                     }
+                    ptr++;
                     break;
             }
 
@@ -259,9 +260,11 @@ static int srq_readform(enum request_method method, void *_METHOD) {
 
             } else {
                 if (end || c == '&') {
-                    curvalue[index] = '\0';
-                    if (srq_tuple_add_value(tuple, curvalue) != 0) {
-                        return(4);
+                    if (tuple != NULL) {
+                        curvalue[index] = '\0';
+                        if (srq_tuple_add_value(tuple, curvalue) != 0) {
+                            return(4);
+                        }
                     }
 
                     index = 0;
@@ -352,11 +355,11 @@ int srq_multipart(int state, char *bound, tsrq_request *request, tsrq_tuple *tup
     file = NULL;
     boundsz = strlen(bound);
     while (!feof(stdin) && fgets(buffer, MFD_CHUNKSIZE, stdin) != NULL) {
-        if ((eol = strstr(buffer, MFD_NEWLINE)) != NULL) {
-            *eol = '\0';
-        }
         linesz = strlen(buffer);
         if (linesz > 2 && buffer[0] == '-' && buffer[1] == '-') {
+            if ((eol = strstr(buffer, MFD_NEWLINE)) != NULL) {
+                *eol = '\0';
+            }
             /* boundary : check if starting boundary or end */
             ptr = buffer + 2;
             if (strncmp(ptr, bound, boundsz) != 0) {
@@ -367,6 +370,9 @@ int srq_multipart(int state, char *bound, tsrq_request *request, tsrq_tuple *tup
                 break;
             }
         } else if (strcasestr(buffer, "content-disposition:") == buffer) {
+            if ((eol = strstr(buffer, MFD_NEWLINE)) != NULL) {
+                *eol = '\0';
+            }
             /* new field/file */
             ptr = buffer + strlen("content-disposition:");
             while (isspace(*ptr))
@@ -409,27 +415,35 @@ int srq_multipart(int state, char *bound, tsrq_request *request, tsrq_tuple *tup
                         /* malformed */
                         return(5);
                     }
+                    tok1 += strlen("filename=");
                     if (*tok1 == '"') {
                         ptr2 = ++tok1;
                         while (*ptr2 != '"')
                             ptr2++;
                         *ptr2 = '\0';
                     }
-                    if ((file = srq_files_add(&(request->_FILES), tok1)) == NULL) {
-                        /* memory exception or already a file with the same name */
-                        return(6);
+                    if (*tok1 == '\0') {
+                        state = MFD_NONE;
+                    } else {
+                        if ((file = srq_files_add(&(request->_FILES), tok1)) == NULL) {
+                            /* memory exception or already a file with the same name */
+                            return(6);
+                        }
+                        if (srq_tuple_add_value(tuple, tok1) != 0) {
+                            /* memory exception */
+                            return(7);
+                        }
+                        state = MFD_NEWFILE;
                     }
-                    if (srq_tuple_add_value(tuple, tok1) != 0) {
-                        /* memory exception */
-                        return(7);
-                    }
-                    state = MFD_NEWFILE;
                 }
             } else {
                 /* what ?? malformed */
                 return(8);
             }
         } else if (strcasestr(buffer, "content-type:") == buffer) {
+            if ((eol = strstr(buffer, MFD_NEWLINE)) != NULL) {
+                *eol = '\0';
+            }
             /* can be a file, or a new boundary (recursive ?) */
             ptr = buffer + strlen("content-type:");
             while (isspace(*ptr))
@@ -461,11 +475,11 @@ int srq_multipart(int state, char *bound, tsrq_request *request, tsrq_tuple *tup
             
             /* TODO another property on a file, same readfile method */
             
-        } else if (strcasestr(buffer, MFD_NEWLINE) == buffer) {
+        } else if (strstr(buffer, MFD_NEWLINE) == buffer) {
             state = (state == MFD_NEWFIELD ? MFD_READFIELD :
                      (state == MFD_NEWFILE ? MFD_READFILE :
                       (state == MFD_INNERBOUND ? state : MFD_NONE)));
-            if (state == MFD_READFIELD) {
+            if (state == MFD_READFILE) {
                 if (srq_mfd_readfile(file, bound) != 0) {
                     /* couldn't read file, malformed */
                     return(12);
@@ -505,7 +519,8 @@ int srq_mfd_readfile(tsrq_file *file, const char *bound) {
     size = 0;
     capacity = 0;
     endfile = false;
-    while (!feof(stdin) && (c = (char)fgetc(stdin)) != EOF && !endfile) {
+    while (!endfile && !feof(stdin)) {
+        c = (char)fgetc(stdin);
         if (size >= capacity) {
             file->data = realloc(file->data, sizeof(char) * (capacity + MFD_CHUNKSIZE));
             if (file->data == NULL) {
@@ -538,28 +553,40 @@ int srq_mfd_readfile(tsrq_file *file, const char *bound) {
  */
 int srq_mfd_readfield(tsrq_tuple *tuple, const char *bound) {
     char buffer[MFD_CHUNKSIZE + 1];
-    bool endfield;
+    bool endfield, add;
     char bstart[256 + 1], bend[256 + 1];
+    char *eol;
     
     snprintf(bstart, 256, "--%s", bound);
     snprintf(bend, 256, "--%s--", bound);
     endfield = false;
-    while (!feof(stdin) && fgets(buffer, MFD_CHUNKSIZE, stdin) != NULL && !endfield) {
+    add = true;
+    while (!endfield && !feof(stdin) && fgets(buffer, MFD_CHUNKSIZE, stdin) != NULL) {
         if (strstr(buffer, bstart) == buffer) {
             endfield = true;
         } else if (strstr(buffer, bend) == buffer) {
             endfield = true;
         } else {
-            /* join value */
-            if (srq_tuple_join_value(tuple, buffer) != 0) {
-                /* memory exception */
-                return(1);
+            if (add) {
+                if (srq_tuple_add_value(tuple, buffer) != 0) {
+                    /* memory exception */
+                    return(1);
+                }
+                add = false;
+            } else {
+                if (srq_tuple_join_value(tuple, buffer) != 0) {
+                    /* memory exception */
+                    return(2);
+                }
             }
         }
     }
     if (feof(stdin) && !endfield) {
         /* no end of bound found, malformed */
-        return(2);
+        return(3);
+    }
+    if ((eol = strrchr(tuple->values[tuple->valuescount - 1], '\r')) != NULL) {
+        *eol = '\0';
     }
     
     return(0);
