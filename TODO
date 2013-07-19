@@ -1,2 +1,1 @@
-- check content length since we shouldn't read more than what the webserver tells us the stream size is
 - srq_file_save(tsrq* file, const char *dir, const char *filename);

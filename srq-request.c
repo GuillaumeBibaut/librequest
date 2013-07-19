@@ -52,12 +52,12 @@
 
 enum request_method {POST, GET, PUT};
 
-static int srq_readform(enum request_method method, void *_METHOD);
-static int srq_readmfd(tsrq_request *request, size_t maxfilesize);
+int srq_readform(enum request_method method, tsrq_request *request);
+int srq_readmfd(tsrq_request *request);
 
-int srq_mfd_readfile(tsrq_file *file, const char *bound, size_t maxfilesize);
-int srq_mfd_readfield(tsrq_tuple *tuple, const char *bound);
-int srq_multipart(int state, char *bound, tsrq_request *request, tsrq_tuple *tuple);
+int srq_mfd_readfile(tsrq_file *file, const char *bound, size_t maxfilesize, size_t *size);
+int srq_mfd_readfield(tsrq_tuple *tuple, const char *bound, size_t *size);
+int srq_multipart(int state, char *bound, tsrq_request *request, tsrq_tuple *tuple, size_t *size);
 
 
 /*
@@ -95,14 +95,22 @@ tsrq_request * srq_request_parse(size_t maxfilesize) {
 
     if (getenv("QUERY_STRING") != NULL) {
         /* All Methods */
-        if ((res = srq_readform(GET, &(request->_GET))) != 0) {
+        if ((res = srq_readform(GET, request)) != 0) {
             srq_request_free(request);
             return(NULL);
         }
     }
 
     if (strcasecmp(ptr, "POST") == 0) {
-        if (getenv("CONTENT_LENGTH") == NULL) {
+        if ((ptr = getenv("CONTENT_LENGTH")) == NULL) {
+#if defined(DEBUG)
+            fprintf(stderr, "%s: env. CONTENT_LENGTH not set, at line %d\n", __func__, __LINE__);
+#endif
+            srq_request_free(request);
+            return(NULL);
+        }
+        request->content_length = (size_t)strtoul(ptr, NULL, 10);
+        if (request->content_length == 0) {
 #if defined(DEBUG)
             fprintf(stderr, "%s: env. CONTENT_LENGTH not set, at line %d\n", __func__, __LINE__);
 #endif
@@ -117,26 +125,34 @@ tsrq_request * srq_request_parse(size_t maxfilesize) {
             return(NULL);
         }
         if (strcasestr(ptr, MFD_STRING) == NULL) {
-            if ((res = srq_readform(POST, &(request->_POST))) != 0) {
+            if ((res = srq_readform(POST, request)) != 0) {
                 srq_request_free(request);
                 return(NULL);
             }
         } else {
-            if ((res = srq_readmfd(request, maxfilesize)) != 0) {
+            if ((res = srq_readmfd(request)) != 0) {
                 srq_request_free(request);
                 return(NULL);
             }
         }
         
     } else if (strcasecmp(ptr, "PUT") == 0) {
-        if (getenv("CONTENT_LENGTH") == NULL) {
+        if ((ptr = getenv("CONTENT_LENGTH")) == NULL) {
 #if defined(DEBUG)
             fprintf(stderr, "%s: env. CONTENT_LENGTH not set, at line %d\n", __func__, __LINE__);
 #endif
             srq_request_free(request);
             return(NULL);
         }
-        if ((res = srq_readform(PUT, &(request->_PUT))) != 0) {
+        request->content_length = (size_t)strtoul(ptr, NULL, 10);
+        if (request->content_length == 0) {
+#if defined(DEBUG)
+            fprintf(stderr, "%s: env. CONTENT_LENGTH not set, at line %d\n", __func__, __LINE__);
+#endif
+            srq_request_free(request);
+            return(NULL);
+        }
+        if ((res = srq_readform(PUT, request)) != 0) {
             srq_request_free(request);
             return(NULL);
         }
@@ -173,12 +189,12 @@ void srq_request_free(tsrq_request *request) {
 /*
  *
  */
-static int srq_readform(enum request_method method, void *_METHOD) {
+int srq_readform(enum request_method method, tsrq_request *request) {
     enum { FIELDNAME, FIELDVALUE, HEXCHAR };
 
     char *ptr, c, curvalue[FVALUESZ + 1], curname[FNAMESZ + 1], *buf;
     int index = 0, hexcnt = 0, hexc = 0;
-    size_t size;
+    size_t pos, size;
     int current, ostate = 0;
     bool end = false;
     tsrq_tuple *tuple;
@@ -188,10 +204,7 @@ static int srq_readform(enum request_method method, void *_METHOD) {
     switch (method) {
         case POST:
         case PUT:
-            if ((ptr = (char *)getenv("CONTENT_LENGTH")) == NULL) {
-                return(1);
-            }
-            size = atoi(ptr);
+            size = request->content_length;
             break;
         case GET:
         default:
@@ -202,7 +215,7 @@ static int srq_readform(enum request_method method, void *_METHOD) {
 
     switch (method) {
         case PUT:
-            putbuf = (tsrq_put *)_METHOD;
+            putbuf = &(request->_PUT);
             putbuf->buffer = calloc(size + 1, sizeof(char));
             if (putbuf->buffer == NULL) {
                 return(2);
@@ -210,16 +223,19 @@ static int srq_readform(enum request_method method, void *_METHOD) {
             putbuf->length = size;
             buf = putbuf->buffer;
             break;
-        case GET:
         case POST:
+            tuples = &(request->_POST);
+            break;
+        case GET:
         default:
-            tuples = (tsrq_tuples *)_METHOD;
+            tuples = &(request->_GET);
             break;
     }
     
     current = FIELDNAME;
     tuple = NULL;
     c = '\0';
+    pos = 0;
     do {
         if (hexcnt == 2) {
             hexcnt = 0;
@@ -267,6 +283,8 @@ static int srq_readform(enum request_method method, void *_METHOD) {
                             return(4);
                         }
                     }
+                    if (end)
+                        break;
 
                     index = 0;
                     current = FIELDNAME;
@@ -317,24 +335,10 @@ static int srq_readform(enum request_method method, void *_METHOD) {
                     }
                 }
             }
+            pos++;
         }
-    } while (!end);
-
-    return(0);
-}
-
-
-/*
- *
- */
-enum { MFD_NONE, MFD_NEWFILE, MFD_READFILE, MFD_NEWFIELD, MFD_READFIELD, MFD_INNERBOUND };
-static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
-    char *content_type, *bound;
-    
-    content_type = getenv("CONTENT_TYPE");
-    bound = content_type + strlen(MFD_STRING);
-
-    if (srq_multipart(MFD_NONE, bound, request, NULL) != 0) {
+    } while (!end && pos <= size);
+    if (!end && pos > size) {
         return(1);
     }
 
@@ -345,7 +349,29 @@ static int srq_readmfd(tsrq_request *request, size_t maxfilesize) {
 /*
  *
  */
-int srq_multipart(int state, char *bound, tsrq_request *request, tsrq_tuple *tuple) {
+enum { MFD_NONE, MFD_NEWFILE, MFD_READFILE, MFD_NEWFIELD, MFD_READFIELD, MFD_INNERBOUND };
+int srq_readmfd(tsrq_request *request) {
+    char *content_type, *bound;
+    size_t size;
+    
+    content_type = getenv("CONTENT_TYPE");
+    bound = content_type + strlen(MFD_STRING);
+
+    if (srq_multipart(MFD_NONE, bound, request, NULL, &size) != 0) {
+        return(1);
+    }
+    if (size > request->content_length) {
+        return(2);
+    }
+
+    return(0);
+}
+
+
+/*
+ *
+ */
+int srq_multipart(int state, char *bound, tsrq_request *request, tsrq_tuple *tuple, size_t *size) {
     char buffer[MFD_CHUNKSIZE + 1], innerbound[256 + 1];;
     char *tok1, *brm, *ptr, *ptr2;
     int cmp1;
@@ -357,6 +383,7 @@ int srq_multipart(int state, char *bound, tsrq_request *request, tsrq_tuple *tup
     boundsz = strlen(bound);
     while (!feof(stdin) && fgets(buffer, MFD_CHUNKSIZE, stdin) != NULL) {
         linesz = strlen(buffer);
+        *size += linesz;
         if (linesz > 2 && buffer[0] == '-' && buffer[1] == '-') {
             if ((eol = strstr(buffer, MFD_NEWLINE)) != NULL) {
                 *eol = '\0';
@@ -481,17 +508,17 @@ int srq_multipart(int state, char *bound, tsrq_request *request, tsrq_tuple *tup
                      (state == MFD_NEWFILE ? MFD_READFILE :
                       (state == MFD_INNERBOUND ? state : MFD_NONE)));
             if (state == MFD_READFILE) {
-                if (srq_mfd_readfile(file, bound, request->_FILES.maxfilesize) != 0) {
+                if (srq_mfd_readfile(file, bound, request->_FILES.maxfilesize, size) != 0) {
                     /* couldn't read file, malformed */
                     return(12);
                 }
             } else if (state == MFD_READFIELD) {
-                if (srq_mfd_readfield(tuple, bound) != 0) {
+                if (srq_mfd_readfield(tuple, bound, size) != 0) {
                     /* couldn't read field, malformed */
                     return(13);
                 }
             } else if (state == MFD_INNERBOUND) {
-                if (srq_multipart(state, innerbound, request, tuple) != 0) {
+                if (srq_multipart(state, innerbound, request, tuple, size) != 0) {
                     /* something was malformed */
                     return(14);
                 }
@@ -505,9 +532,9 @@ int srq_multipart(int state, char *bound, tsrq_request *request, tsrq_tuple *tup
 /*
  *
  */
-int srq_mfd_readfile(tsrq_file *file, const char *bound, size_t maxfilesize) {
+int srq_mfd_readfile(tsrq_file *file, const char *bound, size_t maxfilesize, size_t *size) {
     size_t capacity;
-    size_t size, pos;
+    size_t filesz, pos;
     char c, *data;
     char bstart[256 + 1], bend[256 + 1];
     size_t bstartsz, bendsz, nlsz;
@@ -518,38 +545,39 @@ int srq_mfd_readfile(tsrq_file *file, const char *bound, size_t maxfilesize) {
     snprintf(bend, 256, "%s--%s--", MFD_NEWLINE, bound);
     bendsz = strlen(bend);
     nlsz = strlen(MFD_NEWLINE);
-    size = 0;
+    filesz = 0;
     capacity = 0;
     endfile = false;
     max = false;
     found = false;
     while (!endfile && !feof(stdin)) {
         c = (char)fgetc(stdin);
-        if (size >= capacity) {
+        *size += 1;
+        if (filesz >= capacity) {
             file->data = realloc(file->data, sizeof(char) * (capacity + MFD_CHUNKSIZE));
             if (file->data == NULL) {
                 return(1);
             }
             capacity += MFD_CHUNKSIZE;
         }
-        file->data[size] = c;
-        size++;
-        if (size > bstartsz && strncmp(file->data + (size - bstartsz), bstart, bstartsz) == 0) {
+        file->data[filesz] = c;
+        filesz++;
+        if (filesz > bstartsz && strncmp(file->data + (filesz - bstartsz), bstart, bstartsz) == 0) {
             endfile = true;
-            file->length = size - bstartsz;
-        } else if (size > bendsz && strncmp(file->data + (size - bendsz), bend, bendsz) == 0) {
+            file->length = filesz - bstartsz;
+        } else if (filesz > bendsz && strncmp(file->data + (filesz - bendsz), bend, bendsz) == 0) {
             endfile = true;
-            file->length = size - bendsz;
+            file->length = filesz - bendsz;
         }
-        if (size > maxfilesize) {
+        if (filesz > maxfilesize) {
             /* maxfilesize can be set through srq_request_parse function */
             max = true;
             data = file->data;
             file->data = NULL;
             capacity = 0;
             /* Let's trying to keep moving into the stream */
-            pos = size - (nlsz + 2);
-            while (pos >= (size - MFD_CHUNKSIZE)) {
+            pos = filesz - (nlsz + 2);
+            while (pos >= (filesz - MFD_CHUNKSIZE)) {
                 if (strnstr(data, MFD_NEWLINE, nlsz) == data
                     && strnstr(data + nlsz, "--", 2) == (data + nlsz)) {
                     /* something looks like a boundary, try to keep that part */
@@ -559,9 +587,9 @@ int srq_mfd_readfile(tsrq_file *file, const char *bound, size_t maxfilesize) {
                         file->data = data;
                         return(2);
                     }
-                    memcpy(file->data, (data + pos + nlsz), (size - pos - nlsz));
+                    memcpy(file->data, (data + pos + nlsz), (filesz - pos - nlsz));
                     capacity = MFD_CHUNKSIZE;
-                    size -= (pos + nlsz);
+                    filesz -= (pos + nlsz);
                     free(data);
                     break;
                 }
@@ -570,7 +598,7 @@ int srq_mfd_readfile(tsrq_file *file, const char *bound, size_t maxfilesize) {
             if (!found) {
                 /* nothing like a boundary, reset */
                 capacity = 0;
-                size = 0;
+                filesz = 0;
                 free(data);
             }
             found = false;
@@ -587,6 +615,7 @@ int srq_mfd_readfile(tsrq_file *file, const char *bound, size_t maxfilesize) {
         return(3);
     } else if (!feof(stdin)) {
         fgets(bstart, 256, stdin);
+        *size += strlen(bstart);
     }
     return(0);
 }
@@ -595,7 +624,7 @@ int srq_mfd_readfile(tsrq_file *file, const char *bound, size_t maxfilesize) {
 /*
  *
  */
-int srq_mfd_readfield(tsrq_tuple *tuple, const char *bound) {
+int srq_mfd_readfield(tsrq_tuple *tuple, const char *bound, size_t *size) {
     char buffer[MFD_CHUNKSIZE + 1];
     bool endfield, add;
     char bstart[256 + 1], bend[256 + 1];
@@ -606,6 +635,7 @@ int srq_mfd_readfield(tsrq_tuple *tuple, const char *bound) {
     endfield = false;
     add = true;
     while (!endfield && !feof(stdin) && fgets(buffer, MFD_CHUNKSIZE, stdin) != NULL) {
+        *size += strlen(buffer);;
         if (strstr(buffer, bstart) == buffer) {
             endfield = true;
         } else if (strstr(buffer, bend) == buffer) {

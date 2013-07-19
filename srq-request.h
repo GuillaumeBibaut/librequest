@@ -27,6 +27,8 @@
 #ifndef __SRQ_REQUEST_H__
 #define __SRQ_REQUEST_H__
 
+#include <stddef.h>
+
 #include "srq-defs.h"
 #include "srq-tuple.h"
 #include "srq-tuples.h"
@@ -40,6 +42,7 @@ typedef struct srq_request {
     tsrq_tuples _POST;
     tsrq_files _FILES;
     tsrq_put _PUT;
+    size_t content_length;
 } tsrq_request;
 
 
