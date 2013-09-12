@@ -356,6 +356,7 @@ int srq_readmfd(tsrq_request *request) {
     
     content_type = getenv("CONTENT_TYPE");
     bound = content_type + strlen(MFD_STRING);
+    size = 0;
 
     if (srq_multipart(MFD_NONE, bound, request, NULL, &size) != 0) {
         return(1);
@@ -383,7 +384,7 @@ int srq_multipart(int state, char *bound, tsrq_request *request, tsrq_tuple *tup
     boundsz = strlen(bound);
     while (!feof(stdin) && fgets(buffer, MFD_CHUNKSIZE, stdin) != NULL) {
         linesz = strlen(buffer);
-        *size += linesz;
+        *size = (*size) + linesz;
         if (linesz > 2 && buffer[0] == '-' && buffer[1] == '-') {
             if ((eol = strstr(buffer, MFD_NEWLINE)) != NULL) {
                 *eol = '\0';
