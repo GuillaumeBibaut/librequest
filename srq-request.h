@@ -38,6 +38,7 @@
 
 
 typedef struct srq_request {
+    tsrq_tuples _ANY;
     tsrq_tuples _GET;
     tsrq_tuples _POST;
     tsrq_files _FILES;

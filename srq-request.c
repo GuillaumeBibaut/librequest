@@ -165,12 +165,13 @@ tsrq_request * srq_request_parse(size_t maxfilesize) {
  *
  */
 void srq_request_free(tsrq_request *request) {
-    int index;
+    size_t index;
 
     if (request == NULL) {
         return;
     }
 
+    srq_tuples_free(&(request->_ANY));
     srq_tuples_free(&(request->_GET));
     srq_tuples_free(&(request->_POST));
     if (request->_FILES.files) {
@@ -199,6 +200,8 @@ int srq_readform(enum request_method method, tsrq_request *request) {
     bool end = false;
     tsrq_tuple *tuple;
     tsrq_tuples *tuples;
+    tsrq_tuple *anytuple;
+    tsrq_tuples *anytuples;
     tsrq_put *putbuf;
 
     switch (method) {
@@ -225,15 +228,18 @@ int srq_readform(enum request_method method, tsrq_request *request) {
             break;
         case POST:
             tuples = &(request->_POST);
+            anytuples = &(request->_ANY);
             break;
         case GET:
         default:
             tuples = &(request->_GET);
+            anytuples = &(request->_ANY);
             break;
     }
     
     current = FIELDNAME;
     tuple = NULL;
+    anytuple = NULL;
     c = '\0';
     pos = 0;
     do {
@@ -283,17 +289,27 @@ int srq_readform(enum request_method method, tsrq_request *request) {
                             return(4);
                         }
                     }
+                    if (anytuple != NULL) {
+                        curvalue[index] = '\0';
+                        if (srq_tuple_add_value(anytuple, curvalue) != 0) {
+                            return(41);
+                        }
+                    }
                     if (end)
                         break;
 
                     index = 0;
                     current = FIELDNAME;
                     tuple = NULL;
+                    anytuple = NULL;
 
                 } else if (c == '=') {
                     curname[index] = '\0';
                     if ((tuple = srq_tuples_add(tuples, curname, NULL)) == NULL) {
                         return(3);
+                    }
+                    if ((anytuple = srq_tuples_add(anytuples, curname, NULL)) == NULL) {
+                        return(31);
                     }
 
                     index = 0;
